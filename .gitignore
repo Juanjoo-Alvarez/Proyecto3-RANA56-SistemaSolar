@@ -1,0 +1,12 @@
+/target/
+/dist/
+/.vs/
+/.idea/
+/.vscode/
+/.codex/
+/.agents/
+/AGENTS.md
+*.exe
+*.dll
+*.pdb
+*.ilk
