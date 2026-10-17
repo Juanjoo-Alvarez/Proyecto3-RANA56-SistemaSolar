@@ -1,3 +1,4 @@
+use crate::astronaut::{Astronaut, SPAWN, WalkInput};
 use crate::simulation::*;
 use raylib::prelude::*;
 
@@ -31,6 +32,9 @@ pub enum Phase {
     Orbit,
     Landing,
     Surface,
+    Disembark,
+    OnFoot,
+    Boarding,
     Launch,
 }
 pub struct Expedition {
@@ -39,6 +43,8 @@ pub struct Expedition {
     pub local: World,
     pub beacons: [bool; 3],
     pub completed: bool,
+    pub astronaut: Astronaut,
+    pub(crate) boarding_start: Vector3,
 }
 impl Default for Expedition {
     fn default() -> Self {
@@ -48,6 +54,8 @@ impl Default for Expedition {
             local: surface_ship(),
             beacons: [false; 3],
             completed: false,
+            astronaut: Astronaut::default(),
+            boarding_start: SPAWN,
         }
     }
 }
@@ -59,6 +67,21 @@ fn surface_ship() -> World {
     }
 }
 impl Expedition {
+    pub fn astronaut_visible(&self) -> bool {
+        matches!(
+            self.phase,
+            Phase::OnFoot | Phase::Disembark | Phase::Boarding
+        )
+    }
+    pub fn disembark(&mut self) {
+        if self.phase == Phase::Surface && self.at_pad() {
+            self.local = surface_ship();
+            self.local.position.y = 1.2;
+            self.phase = Phase::Disembark;
+            self.progress = 0.0;
+            self.astronaut = Astronaut::default();
+        }
+    }
     pub fn can_land(&self, orbit: &World) -> bool {
         self.phase == Phase::Orbit
             && length(orbit.position - moon_position(orbit.time)) < 13.0
@@ -80,6 +103,11 @@ impl Expedition {
                 self.phase = Phase::Launch;
                 self.progress = 0.0;
             }
+            Phase::OnFoot if self.astronaut.near_ship() => {
+                self.phase = Phase::Boarding;
+                self.progress = 0.0;
+                self.boarding_start = self.astronaut.position;
+            }
             _ => {}
         }
     }
@@ -87,13 +115,16 @@ impl Expedition {
         if self.phase == Phase::Orbit {
             orbit.reset();
             orbit.selected = MOON;
+        } else if self.astronaut_visible() {
+            self.astronaut = Astronaut::default();
+            self.phase = Phase::OnFoot;
         } else {
             self.local = surface_ship();
             self.phase = Phase::Surface;
             self.progress = 0.0;
         }
     }
-    pub fn update(&mut self, orbit: &mut World, input: Input, dt: f32) {
+    pub fn update(&mut self, orbit: &mut World, input: Input, walk: WalkInput, dt: f32) {
         let dt = dt.clamp(0.0, 0.05);
         if orbit.paused {
             return;
@@ -114,6 +145,7 @@ impl Expedition {
                 if self.progress >= 1.0 {
                     if self.phase == Phase::Landing {
                         self.phase = Phase::Surface;
+                        self.disembark();
                     } else {
                         self.phase = Phase::Orbit;
                         orbit.position = moon_position(orbit.time) + v(0.0, 5.0, 10.0);
@@ -124,6 +156,47 @@ impl Expedition {
                         if self.beacons.iter().all(|b| *b) {
                             self.completed = true;
                         }
+                    }
+                }
+            }
+            Phase::Disembark | Phase::Boarding => {
+                self.local.time += dt;
+                self.local.thrust = 0.05;
+                self.progress = (self.progress + dt / 1.3).min(1.0);
+                let t = self.progress * self.progress * (3.0 - 2.0 * self.progress);
+                let door = v(3.0, 1.3, 28.0);
+                let (from, to) = if self.phase == Phase::Disembark {
+                    (door, SPAWN)
+                } else {
+                    (self.boarding_start, door)
+                };
+                self.astronaut.position = from + (to - from) * t;
+                self.astronaut.time += dt;
+                self.astronaut.animation += dt * 10.0;
+                self.astronaut.velocity = v(2.0, 0.0, 0.0);
+                self.astronaut.yaw = if self.phase == Phase::Disembark {
+                    std::f32::consts::FRAC_PI_2
+                } else {
+                    -std::f32::consts::FRAC_PI_2
+                };
+                if self.progress >= 1.0 {
+                    if self.phase == Phase::Disembark {
+                        self.phase = Phase::OnFoot;
+                        self.astronaut = Astronaut::default();
+                    } else {
+                        self.phase = Phase::Surface;
+                        self.local = surface_ship();
+                        self.local.thrust = 0.12;
+                    }
+                }
+            }
+            Phase::OnFoot => {
+                self.local.time += dt;
+                self.local.thrust = 0.05;
+                self.astronaut.update(walk, dt);
+                for (i, beacon) in BEACONS.iter().enumerate() {
+                    if length(self.astronaut.position + v(0.0, 1.4, 0.0) - *beacon) < 2.7 {
+                        self.beacons[i] = true;
                     }
                 }
             }
@@ -162,11 +235,6 @@ impl Expedition {
                 }
                 ship.position = bounded;
                 ship.thrust = (length(ship.velocity) / 22.0).clamp(0.12, 1.0);
-                for (i, beacon) in BEACONS.iter().enumerate() {
-                    if length(ship.position - *beacon) < 5.0 {
-                        self.beacons[i] = true;
-                    }
-                }
             }
         }
     }
@@ -197,24 +265,46 @@ mod tests {
         let mut e = Expedition::default();
         e.interact(&mut world);
         world.paused = true;
-        e.update(&mut world, Input::default(), 0.05);
+        e.update(&mut world, Input::default(), WalkInput::default(), 0.05);
         assert_eq!(e.progress, 0.0);
         world.paused = false;
-        for _ in 0..80 {
-            e.update(&mut world, Input::default(), 0.05);
+        for _ in 0..120 {
+            e.update(&mut world, Input::default(), WalkInput::default(), 0.05);
         }
-        assert_eq!(e.phase, Phase::Surface);
-        for beacon in BEACONS {
-            e.local.position = beacon;
-            e.update(&mut world, Input::default(), 0.01);
+        assert_eq!(e.phase, Phase::OnFoot);
+        world.paused = true;
+        let saved = e.astronaut.position;
+        let clock = e.astronaut.time;
+        e.update(
+            &mut world,
+            Input::default(),
+            WalkInput {
+                forward: 1.0,
+                jump_pressed: true,
+                jump_held: true,
+                ..Default::default()
+            },
+            0.05,
+        );
+        assert_eq!(saved, e.astronaut.position);
+        assert_eq!(clock, e.astronaut.time);
+        world.paused = false;
+        for (i, beacon) in BEACONS.into_iter().enumerate() {
+            e.astronaut.position = v(beacon.x, if i == 1 { 4.2 } else { 1.5 }, beacon.z);
+            e.update(&mut world, Input::default(), WalkInput::default(), 0.01);
         }
         e.interact(&mut world);
+        assert_eq!(e.phase, Phase::OnFoot);
+        e.astronaut = Astronaut::default();
+        e.interact(&mut world);
+        assert_eq!(e.phase, Phase::Boarding);
+        for _ in 0..30 {
+            e.update(&mut world, Input::default(), WalkInput::default(), 0.05);
+        }
         assert_eq!(e.phase, Phase::Surface);
-        e.local.position = PAD;
-        e.local.velocity *= 0.0;
         e.interact(&mut world);
         for _ in 0..80 {
-            e.update(&mut world, Input::default(), 0.05);
+            e.update(&mut world, Input::default(), WalkInput::default(), 0.05);
         }
         assert_eq!(e.phase, Phase::Orbit);
         assert!(e.completed);
@@ -237,6 +327,7 @@ mod tests {
                     boost: true,
                     ..Default::default()
                 },
+                WalkInput::default(),
                 0.05,
             );
         }

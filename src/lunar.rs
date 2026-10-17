@@ -14,6 +14,15 @@ pub fn camera(e: &Expedition) -> Camera3D {
             v(0.0, 1.0, 0.0),
             55.0,
         )
+    } else if e.phase == Phase::OnFoot {
+        e.astronaut.camera()
+    } else if e.astronaut_visible() {
+        Camera3D::perspective(
+            v(19.0, 8.0, 42.0),
+            e.astronaut.position + v(0.0, 1.5, 0.0),
+            v(0.0, 1.0, 0.0),
+            52.0,
+        )
     } else {
         scene::flight_camera(&e.local)
     }
@@ -157,6 +166,25 @@ pub fn draw(
             );
             s.draw_sphere_ex(v(x, 16.0, -65.0), 0.4, 6, 8, ACCENT);
         }
+        // Las mismas dimensiones se usan para dibujar y resolver colisiones.
+        for (i, b) in crate::astronaut::PLATFORMS.iter().enumerate() {
+            let color = if i < 6 {
+                Color::new(82, 111, 134, 255)
+            } else {
+                Color::new(153, 109, 65, 255)
+            };
+            s.draw_cube_v(b.center, b.size, color);
+            s.draw_cube_v(
+                v(b.center.x, b.top() + 0.04, b.center.z),
+                v(b.size.x + 0.04, 0.08, b.size.z + 0.04),
+                Color::new(163, 192, 195, 255),
+            );
+            s.draw_cube_v(
+                v(b.center.x, b.top() + 0.09, b.center.z + b.size.z * 0.35),
+                v(b.size.x * 0.65, 0.02, 0.25),
+                Color::new(249, 184, 81, 255),
+            );
+        }
         for (i, b) in BEACONS.iter().enumerate() {
             let c = if e.beacons[i] {
                 ACCENT
@@ -189,6 +217,9 @@ pub fn draw(
         }
         assets.kind(11);
         crate::ship::draw(&mut s, &assets.ship, &e.local, 0.55);
+        if e.astronaut_visible() {
+            crate::frog::draw(&mut s, &assets.frog_mesh, &e.astronaut);
+        }
     }
     let collected = e.beacons.iter().filter(|&&b| b).count();
     for (i, b) in BEACONS.iter().enumerate() {
@@ -210,7 +241,7 @@ pub fn draw(
     d.draw_rectangle(24, 24, 430, 83, Color::new(7, 17, 32, 235));
     d.draw_rectangle(24, 24, 4, 83, ACCENT);
     d.draw_text("BASE NENUFAR", 44, 38, 30, Color::WHITE);
-    d.draw_text("LUNA / PATIO DE VUELO / v0.2.1", 44, 79, 15, ACCENT);
+    d.draw_text("LUNA / EXPLORACION A PIE / v0.3", 44, 79, 15, ACCENT);
     d.draw_rectangle(w - 340, 24, 316, 96, Color::new(7, 17, 32, 235));
     d.draw_text(
         &format!("TELEMETRIA   {collected} / 3"),
@@ -221,9 +252,9 @@ pub fn draw(
     );
     d.draw_text(
         if collected == 3 {
-            "Vuelve al helipuerto para despegar"
+            "Vuelve a tu nave para despegar"
         } else {
-            "Acercate a las tres balizas doradas"
+            "Salta hasta las tres balizas doradas"
         },
         w - 320,
         82,
@@ -231,44 +262,85 @@ pub fn draw(
         Color::WHITE,
     );
     d.draw_rectangle(24, h - 142, w - 48, 118, Color::new(7, 17, 32, 235));
-    d.draw_text(
-        &format!(
-            "ALTURA  {:02.0} m    VELOCIDAD  {:02.0} m/s",
-            e.local.position.y,
-            length(e.local.velocity)
-        ),
-        44,
-        h - 124,
-        18,
-        ACCENT,
-    );
-    d.draw_text(
-        if pad {
-            "R2/L2 avanzar/retroceder   Stick izq: orientar suave   Stick der: orientar"
-        } else {
-            "W/S avanzar/retroceder   A/D lateral   Espacio/Ctrl altura   Flechas orientar"
-        },
-        44,
-        h - 91,
-        17,
-        Color::WHITE,
-    );
-    let message = match e.phase {
-        Phase::Landing => "DESCENSO EN CURSO / Motores de aproximacion",
-        Phase::Launch => "ASCENSO EN CURSO / Regresando al sistema solar",
-        _ if e.at_pad() => {
-            if pad {
-                "X: despegar   |   Circulo: frenar   |   Options: pausa"
-            } else {
-                "E: despegar   |   X: frenar   |   Esc: pausa"
+    if e.astronaut_visible() {
+        let a = &e.astronaut;
+        d.draw_text("LUMA / RANA DE ARBOL / CAPITANA", 44, h - 124, 18, ACCENT);
+        d.draw_text(if pad {"Stick izq: caminar   Stick der: camara   X: saltar (mantener para cargar)   R2: correr"} else {"WASD: caminar   Flechas: camara   Espacio: saltar (mantener para cargar)   Shift: correr"},44,h-91,16,Color::WHITE);
+        let message = match e.phase {
+            Phase::Disembark => "DESCENSO DE LA TRIPULANTE / Preparando exploracion",
+            Phase::Boarding => "ABORDANDO RANA-56 / Preparando cabina",
+            _ if a.near_ship() => {
+                if pad {
+                    "TRIANGULO: abordar la nave   |   Options: pausa   |   Arriba: ayuda"
+                } else {
+                    "E: abordar la nave   |   Esc: pausa   |   H: ayuda"
+                }
             }
+            _ => {
+                "Explora las plataformas. La baliza central requiere un salto cargado desde los escalones."
+            }
+        };
+        d.draw_text(message, 44, h - 58, 16, ACCENT);
+        if a.charging {
+            d.draw_rectangle(w / 2 - 125, h - 205, 250, 40, Color::new(7, 17, 32, 240));
+            d.draw_rectangle(
+                w / 2 - 115,
+                h - 196,
+                (230.0 * a.charge) as i32,
+                8,
+                Color::GOLD,
+            );
+            d.draw_text("CARGANDO SALTO", w / 2 - 105, h - 181, 14, Color::GOLD);
         }
-        _ => "Explora el patio. Para salir, vuelve a la plataforma H y reduce velocidad.",
-    };
-    d.draw_text(message, 44, h - 58, 16, ACCENT);
+    } else {
+        d.draw_text(
+            &format!(
+                "ALTURA  {:02.0} m    VELOCIDAD  {:02.0} m/s",
+                e.local.position.y,
+                length(e.local.velocity)
+            ),
+            44,
+            h - 124,
+            18,
+            ACCENT,
+        );
+        d.draw_text(
+            if pad {
+                "R2/L2 avanzar/retroceder   Stick izq: orientar suave   Stick der: orientar"
+            } else {
+                "W/S avanzar/retroceder   A/D lateral   Espacio/Ctrl altura   Flechas orientar"
+            },
+            44,
+            h - 91,
+            17,
+            Color::WHITE,
+        );
+        let message = match e.phase {
+            Phase::Landing => "DESCENSO EN CURSO / Motores de aproximacion",
+            Phase::Launch => "ASCENSO EN CURSO / Regresando al sistema solar",
+            _ if e.at_pad() => {
+                if pad {
+                    "X: despegar   |   Cuadrado: salir de la nave   |   Options: pausa"
+                } else {
+                    "E: despegar   |   Q: salir de la nave   |   Esc: pausa"
+                }
+            }
+            _ => "Explora el patio. Para salir, vuelve a la plataforma H y reduce velocidad.",
+        };
+        d.draw_text(message, 44, h - 58, 16, ACCENT);
+    }
     // Brújula hacia la plataforma; siempre visible aunque quede detras de la camara.
-    let delta = PAD - e.local.position;
-    let angle = delta.x.atan2(delta.z) - e.local.yaw;
+    let delta = if e.astronaut_visible() {
+        crate::astronaut::SPAWN - e.astronaut.position
+    } else {
+        PAD - e.local.position
+    };
+    let yaw = if e.astronaut_visible() {
+        e.astronaut.camera_yaw
+    } else {
+        e.local.yaw
+    };
+    let angle = delta.x.atan2(delta.z) - yaw;
     let (cx, cy) = (w - 106, h - 224);
     d.draw_circle(cx, cy, 48.0, Color::new(7, 17, 32, 230));
     d.draw_circle_lines(cx, cy, 48.0, ACCENT);

@@ -187,17 +187,17 @@ pub fn overlay(
             let lines = [
                 "1. Selecciona LUNA (9 o L1/R1) y activa F / Triangulo.",
                 "2. Al llegar, pulsa E / X para descender.",
-                "3. Acercate a las tres balizas de la base lunar.",
-                "4. Regresa a H, frena y pulsa E / X para despegar.",
+                "3. Al aterrizar, Luma sale de la nave automaticamente.",
+                "4. A pie: activa las tres balizas saltando a sus plataformas.",
+                "5. Regresa, E/Triangulo para abordar; E/X para despegar.",
                 "",
-                "R2 / L2          Avanzar / retroceder       W / S",
-                "Stick izquierdo  Orientacion suave; R2/L2 para avanzar",
-                "Stick derecho    Orientar la nave          Flechas",
-                "R3 / Circulo     Turbo / frenar            Shift / X",
-                "Cuadrado         Mapa del sistema          Tab",
-                "L1 / R1          Seleccionar destino       [ / ]",
-                "Options          Pausa y menu              Esc / P",
-                "Share            Prueba de mando           F3",
+                "EN VUELO: R2/L2 impulso; sticks orientar; R3 turbo.",
+                "A PIE: stick izq / WASD caminar; R2 / Shift correr.",
+                "Stick derecho / Flechas: camara. X / Espacio: salto.",
+                "Manten X/Espacio y suelta para un salto cargado.",
+                "Triangulo / E: abordar. Cuadrado / Q: salir en H.",
+                "L1/R1 destinos; Cuadrado/Tab mapa orbital.",
+                "Options/Esc pausa. Share/F3 prueba de mando.",
                 "",
                 "Arriba / H / Circulo: cerrar ayuda. Progreso de sesion.",
             ];
@@ -212,9 +212,18 @@ pub fn overlay(
         let y = h / 2 - 190;
         d.draw_rectangle(x, y, 500, 380, Color::new(11, 25, 39, 255));
         d.draw_text("PAUSA", x + 36, y + 30, 34, ACCENT);
-        for (i, label) in ["Continuar", "Reubicar nave", "Controles", "Salir del juego"]
-            .iter()
-            .enumerate()
+        for (i, label) in [
+            "Continuar",
+            if e.astronaut_visible() {
+                "Reubicar astronauta"
+            } else {
+                "Reubicar nave"
+            },
+            "Controles",
+            "Salir del juego",
+        ]
+        .iter()
+        .enumerate()
         {
             let yy = y + 95 + i as i32 * 49;
             if menu == i as i32 {

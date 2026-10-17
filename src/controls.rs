@@ -37,6 +37,9 @@ pub struct Controls {
 #[derive(Default)]
 pub struct Actions {
     pub flight: Input,
+    pub walk: crate::astronaut::WalkInput,
+    pub foot_interact: bool,
+    pub disembark: bool,
     pub interact: bool,
     pub route: bool,
     pub map: bool,
@@ -84,6 +87,7 @@ impl Controls {
             (analog(GAMEPAD_AXIS_LEFT_X), analog(GAMEPAD_AXIS_LEFT_Y)),
             (analog(GAMEPAD_AXIS_RIGHT_X), analog(GAMEPAD_AXIS_RIGHT_Y)),
         );
+        let (walk_x, walk_y) = stick(analog(GAMEPAD_AXIS_LEFT_X), analog(GAMEPAD_AXIS_LEFT_Y));
         let thrust = self.pad.map_or(0.0, |_| {
             trigger(analog(GAMEPAD_AXIS_RIGHT_TRIGGER)) - trigger(analog(GAMEPAD_AXIS_LEFT_TRIGGER))
         });
@@ -92,6 +96,19 @@ impl Controls {
             KEY_NINE,
         ];
         Actions {
+            walk: crate::astronaut::WalkInput {
+                horizontal: (axis(rl, KEY_D, KEY_A) + walk_x).clamp(-1.0, 1.0),
+                forward: (axis(rl, KEY_W, KEY_S) - walk_y).clamp(-1.0, 1.0),
+                look_x: (axis(rl, KEY_LEFT, KEY_RIGHT) + heading.yaw).clamp(-1.0, 1.0),
+                look_y: (axis(rl, KEY_UP, KEY_DOWN) + heading.pitch).clamp(-1.0, 1.0),
+                jump_pressed: rl.is_key_pressed(KEY_SPACE)
+                    || pressed(GAMEPAD_BUTTON_RIGHT_FACE_DOWN),
+                jump_held: rl.is_key_down(KEY_SPACE) || down(GAMEPAD_BUTTON_RIGHT_FACE_DOWN),
+                run: rl.is_key_down(KEY_LEFT_SHIFT)
+                    || (self.pad.is_some() && trigger(analog(GAMEPAD_AXIS_RIGHT_TRIGGER)) > 0.25),
+            },
+            foot_interact: rl.is_key_pressed(KEY_E) || pressed(GAMEPAD_BUTTON_RIGHT_FACE_UP),
+            disembark: rl.is_key_pressed(KEY_Q) || pressed(GAMEPAD_BUTTON_RIGHT_FACE_LEFT),
             flight: Input {
                 thrust: (axis(rl, KEY_W, KEY_S) + thrust).clamp(-1.0, 1.0),
                 strafe: axis(rl, KEY_D, KEY_A),
@@ -168,12 +185,22 @@ mod tests {
         };
         let lunar_start = e.local.position;
         for _ in 0..120 {
-            e.update(&mut world, aim, 1.0 / 60.0);
+            e.update(
+                &mut world,
+                aim,
+                crate::astronaut::WalkInput::default(),
+                1.0 / 60.0,
+            );
         }
         assert_eq!(e.local.position, lunar_start);
         assert!(e.local.pitch > 0.5);
         for _ in 0..60 {
-            e.update(&mut world, accelerated, 1.0 / 60.0);
+            e.update(
+                &mut world,
+                accelerated,
+                crate::astronaut::WalkInput::default(),
+                1.0 / 60.0,
+            );
         }
         assert!(e.local.position.y > lunar_start.y + 2.0);
     }

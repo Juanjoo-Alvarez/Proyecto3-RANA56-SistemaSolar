@@ -10,6 +10,7 @@ const WHITE: Color = Color::new(229, 240, 248, 255);
 pub struct Assets {
     pub sphere: Model,
     pub ship: Model,
+    pub frog_mesh: Model,
     shader: Shader,
     kind_loc: i32,
     time_loc: i32,
@@ -54,6 +55,13 @@ impl Assets {
         for material in ship.materials_mut() {
             material.set_shader(&shader);
         }
+        let frog_mesh = Mesh::gen_mesh_sphere(thread, 1.0, 10, 12);
+        let mut frog_mesh = rl
+            .load_model_from_mesh(thread, unsafe { frog_mesh.make_weak() })
+            .map_err(|e| e.to_string())?;
+        for material in frog_mesh.materials_mut() {
+            material.set_shader(&shader);
+        }
         let mut seed = 24856;
         let stars = (0..1600)
             .map(|_| {
@@ -84,6 +92,7 @@ impl Assets {
         Ok(Self {
             sphere,
             ship,
+            frog_mesh,
             shader,
             kind_loc,
             time_loc,
@@ -385,7 +394,7 @@ pub fn draw_hud(d: &mut RaylibDrawHandle, world: &World, overview: bool, help: b
         15,
         MUTED,
     );
-    d.draw_text("OPERACION CROAC / v0.2.1", w - 253, 34, 15, MUTED);
+    d.draw_text("OPERACION CROAC / v0.3.0", w - 253, 34, 15, MUTED);
     d.draw_text("SOL  /  SISTEMA LOCAL", w - 253, 60, 17, WHITE);
 
     let nav_x = w - 247;

@@ -1,5 +1,7 @@
+mod astronaut;
 mod controls;
 mod expedition;
+mod frog;
 mod interface;
 mod lunar;
 mod scene;
@@ -21,6 +23,8 @@ struct Options {
     controller_report: bool,
     smoke_tour: bool,
     flight_check: bool,
+    walking: bool,
+    portrait: bool,
 }
 fn options() -> Result<Options, String> {
     let mut opts = Options {
@@ -34,6 +38,8 @@ fn options() -> Result<Options, String> {
         controller_report: false,
         smoke_tour: false,
         flight_check: false,
+        walking: false,
+        portrait: false,
     };
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -57,6 +63,11 @@ fn options() -> Result<Options, String> {
             "--controller-report" => opts.controller_report = true,
             "--smoke-tour" => opts.smoke_tour = true,
             "--flight-check" => opts.flight_check = true,
+            "--walking" => opts.walking = true,
+            "--portrait" => {
+                opts.walking = true;
+                opts.portrait = true;
+            }
             "--planet" => {
                 let n = args
                     .next()
@@ -70,7 +81,7 @@ fn options() -> Result<Options, String> {
             }
             "--help" => {
                 println!(
-                    "RANA / 56 - Operacion Croac v0.2.1\ncargo run --release\nOpciones: --frames N --capture archivo.png --overview --planet 1..8 --hidden --lunar --near-moon --controller-report --smoke-tour --flight-check"
+                    "RANA / 56 - Operacion Croac v0.3.0\ncargo run --release\nOpciones: --frames N --capture archivo.png --overview --planet 1..8 --hidden --lunar --near-moon --controller-report --smoke-tour --flight-check --walking --portrait"
                 );
                 std::process::exit(0);
             }
@@ -104,7 +115,7 @@ fn run() -> Result<(), String> {
     let mut builder = raylib::init();
     builder
         .size(1440, 900)
-        .title("RANA-56 | Operacion Croac v0.2.1 - Proyecto 3")
+        .title("RANA-56 | Operacion Croac v0.3.0 - Proyecto 3")
         .resizable()
         .msaa_4x()
         .log_level(TraceLogLevel::LOG_WARNING);
@@ -121,6 +132,10 @@ fn run() -> Result<(), String> {
     let mut controls = controls::Controls::default();
     if opts.lunar {
         expedition.phase = expedition::Phase::Surface;
+    }
+    if opts.walking {
+        expedition.phase = expedition::Phase::OnFoot;
+        expedition.local.position.y = 1.2;
     }
     if opts.near_moon {
         world.position = moon_position(0.0) + v(0.0, 4.0, 8.0);
@@ -160,6 +175,7 @@ fn run() -> Result<(), String> {
         lunar::camera(&expedition)
     };
     let mut frames = 0u32;
+    let mut trial = astronaut::TrialPilot::default();
     while !rl.window_should_close() {
         use KeyboardKey::*;
         let dt = if opts.frames.is_some() {
@@ -168,6 +184,7 @@ fn run() -> Result<(), String> {
             rl.get_frame_time().min(0.05)
         };
         let action = controls.read(&rl);
+        let previous_phase = expedition.phase;
         if frames == 0 || controls.disconnected {
             controls.report(&rl);
         }
@@ -245,12 +262,20 @@ fn run() -> Result<(), String> {
                         world.travel(i);
                     }
                 }
-                if action.interact {
+                if expedition.phase == expedition::Phase::OnFoot {
+                    if action.foot_interact {
+                        expedition.interact(&mut world);
+                    }
+                } else if action.interact {
                     expedition.interact(&mut world);
+                }
+                if action.disembark {
+                    expedition.disembark();
                 }
             }
         }
         let mut input = action.flight;
+        let mut walk = action.walk;
         if opts.smoke_tour {
             input = Input::default();
             match expedition.phase {
@@ -260,33 +285,29 @@ fn run() -> Result<(), String> {
                     expedition.interact(&mut world)
                 }
                 expedition::Phase::Surface => {
-                    let target = expedition
-                        .beacons
-                        .iter()
-                        .position(|b| !*b)
-                        .map_or(expedition::PAD, |i| expedition::BEACONS[i]);
-                    let delta = target - expedition.local.position;
-                    input.thrust = dot(
-                        delta,
-                        v(expedition.local.yaw.sin(), 0.0, expedition.local.yaw.cos()),
-                    ) * 0.2;
-                    input.strafe = dot(delta, expedition.local.right()) * 0.2;
-                    input.vertical = delta.y * 0.2;
-                    if expedition.beacons.iter().all(|b| *b) && expedition.at_pad() {
+                    if expedition.beacons.iter().all(|b| *b) {
+                        expedition.interact(&mut world);
+                    } else {
+                        expedition.disembark();
+                    }
+                }
+                expedition::Phase::OnFoot => {
+                    walk = trial.input(&expedition.astronaut, dt);
+                    if expedition.beacons.iter().all(|b| *b) && expedition.astronaut.near_ship() {
                         expedition.interact(&mut world);
                     }
                 }
                 _ => {}
             }
         }
-        let previous_phase = expedition.phase;
         if !opts.flight_check
+            && !opts.portrait
             && !help
             && !diagnostic
             && !world.paused
             && (!consumed || opts.smoke_tour)
         {
-            expedition.update(&mut world, input, dt);
+            expedition.update(&mut world, input, walk, dt);
         }
         if previous_phase != expedition.phase {
             println!("Fase: {:?}", expedition.phase);
@@ -296,12 +317,25 @@ fn run() -> Result<(), String> {
         } else {
             lunar::camera(&expedition)
         };
-        if previous_phase != expedition.phase || action.interact || action.reset {
+        if previous_phase != expedition.phase || action.reset {
             camera = desired;
         }
         let smoothing = 1.0 - (-6.0 * dt).exp();
         camera.position = camera.position + (desired.position - camera.position) * smoothing;
         camera.target = camera.target + (desired.target - camera.target) * smoothing;
+        if expedition.phase == expedition::Phase::OnFoot {
+            camera.position = expedition
+                .astronaut
+                .clip_camera(camera.target, camera.position);
+        }
+        if opts.portrait {
+            camera = Camera3D::perspective(
+                expedition.astronaut.position + v(4.3, 3.1, -7.0),
+                expedition.astronaut.position + v(0.0, 1.6, 0.0),
+                v(0.0, 1.0, 0.0),
+                38.0,
+            );
+        }
         let active_camera = if overview && expedition.phase == expedition::Phase::Orbit {
             scene::overview_camera()
         } else {

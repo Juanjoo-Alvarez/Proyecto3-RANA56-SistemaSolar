@@ -1,165 +1,145 @@
 # RANA / 56 — Operación Croac
 
-**Proyecto 3 · Versión 0.2.1 · Ajustes de vuelo de la versión 0.2**
+**Proyecto 3 · Versión 0.3.0 · Nuestra astronauta**
+
 Juan Jose Rivas Alvarez · Carnet 24856
 
-Exploración espacial en **Rust y raylib 6.0.0**, con la nave RANA-56 creada en Blender para el Laboratorio 3. Esta versión conecta el sistema solar con un escenario lunar: viaja, desciende con una animación, activa tres balizas y vuelve al espacio. Recomendada para mando, con controles completos de teclado como alternativa.
+Aventura del sistema solar en **Rust y raylib 6.0.0**. Pilota la nave RANA-56, aterriza en la Luna y explora a pie con **Luma**, una rana de árbol de ojos rojos con traje espacial. La versión 0.3 agrega movimiento, saltos, cámara, animaciones y un circuito de plataformas para probarlos.
 
-![Base Nenúfar en la Luna](screenshots/luna-v02.png)
+![Luma, la capitana de RANA-56](screenshots/luma-v03.png)
 
-### Ajustes 0.2.1
+## Qué incluye la versión 0.3
 
-- Las estelas están ancladas a las caras de los motores del OBJ y comparten la rotación y escala de la nave, tanto en órbita como en la Luna.
-- El stick izquierdo orienta suavemente el morro. Si la nave está detenida, mover el stick no la desplaza; R2/L2 proporcionan el avance/retroceso en la dirección apuntada. El stick derecho conserva su sensibilidad y respuesta.
-- Se muestra **X** para el botón inferior del mando PlayStation; su asignación sigue siendo la misma.
+- Personaje 3D generado en código: piel verde, ojos rojos, detalles azules, dedos naranjas, mochila de oxígeno y casco transparente.
+- Animaciones de reposo, respiración, parpadeo, caminar/correr, preparación del salto, vuelo y amortiguación al aterrizar.
+- Movimiento relativo a la cámara, carrera analógica, salto corto y salto cargado.
+- Colisiones con suelo, paredes, nave y plataformas; cámara que se acerca para evitar obstáculos.
+- Salida automática de la nave después del descenso y animación para volver a abordar.
+- Tres balizas que se activan **a pie**, con escalones y plataformas de diferentes alturas.
+- Vuelo orbital y lunar, mando PlayStation, ayuda, pausa y diagnóstico de la versión 0.2.1.
 
-La nave lunar también refleja la inclinación al dibujarse y avanza según su orientación. El teclado conserva A/D y Espacio/Ctrl para los desplazamientos laterales y verticales.
+El circuito es una zona de práctica de la astronauta. Los rescates de la tripulación y sus celebraciones corresponden a las próximas versiones. Las visitas y balizas se mantienen durante la sesión; todavía no hay guardado en disco.
 
-## Probar la versión 0.2
+![Circuito de exploración lunar](screenshots/exploracion-v03.png)
 
-1. Conecta el DualShock 4 por USB y abre `rana-solar.exe` del paquete Windows, conservando `assets` junto al ejecutable.
-2. La **Luna** está seleccionada al empezar. Pulsa **Triángulo / F** para viajar automáticamente.
-3. Al llegar, pulsa **X / E** cuando aparezca la indicación de descenso. Si llegaste manualmente, frena por debajo de 8 u/s.
-4. En la **Base Nenúfar**, pilota la nave hacia las tres balizas doradas. Se activan al acercarte y cambian a verde.
-5. Vuelve a la plataforma **H**, reduce velocidad y pulsa **X / E** para despegar. La brújula de la esquina apunta a la plataforma.
-6. Al regresar al espacio con las tres balizas activadas aparece la confirmación de prueba completada.
+## Probar hoy
 
-Puedes volver al espacio antes de completar las balizas y continuar la visita después. El avance permanece durante la sesión. El descenso está habilitado en la Luna; los ocho planetas siguen disponibles para vuelo orbital. La astronauta caminando y los rescates corresponden a las próximas versiones.
+En la carpeta local `dist/RANA56-v0.3.0/`:
 
-![Aproximación y entrada a la Luna](screenshots/descenso-v02.png)
+- Abre **`rana-solar.exe`** para empezar en el sistema solar.
+- Abre **`ExplorarLaLuna.cmd`** para comenzar directamente junto a la nave y probar a Luma.
+- Conserva `assets` junto al ejecutable. Cada versión tiene su propia carpeta.
 
-## Mando DualShock 4 / DualSense
+Recorrido completo:
 
-Se utilizan los mapeos estándar de GLFW incluidos en raylib. La versión se verificó con un **DualShock 4 detectado como Wireless Controller**, seis ejes, gatillos en reposo y sticks dentro de la zona muerta. El DualSense dispone de mapeo en la biblioteca, pero no se ha probado físicamente en esta sesión. La comodidad de vuelo y los botones quedan disponibles para la prueba del jugador.
+1. La Luna comienza seleccionada. Pulsa **Triángulo / F** para viajar automáticamente.
+2. Al llegar, pulsa **X / E** para descender. El vuelo manual requiere estar cerca y por debajo de 8 u/s.
+3. Tras aterrizar, Luma sale de la nave automáticamente.
+4. Camina por la base, salta a las plataformas y activa las tres balizas doradas. La central se alcanza desde los escalones con un salto cargado.
+5. Regresa al lado derecho de la nave, donde saliste. Pulsa **Triángulo / E** para abordar cuando aparezca el aviso.
+6. Ya en cabina, pulsa **X / E** para despegar. También puedes volver a salir con **Cuadrado / Q** mientras estás en H.
 
-| Mando PlayStation | Acción |
-| --- | --- |
-| R2 / L2 | Avanzar / retroceder con intensidad analógica |
-| Stick izquierdo, horizontal | Giro suave hacia izquierda / derecha |
-| Stick izquierdo, vertical | Inclinar el morro hacia arriba / abajo |
-| Stick derecho | Girar e inclinar la nave |
-| R3, mantener | Turbo |
-| Círculo, mantener | Frenar |
-| L1 / R1 | Elegir destino anterior / siguiente |
-| Triángulo | Iniciar o cancelar la ruta automática |
-| X | Descender / despegar cuando aparece el aviso |
-| Cuadrado | Mapa del sistema |
-| Options | Pausa y menú |
-| Cruceta arriba | Ayuda |
-| Share / Create | Diagnóstico de mando |
-| Cruceta arriba/abajo + X | Seleccionar y confirmar opciones del menú |
-| Círculo | Cerrar ayuda o volver desde el menú |
+Puedes regresar al espacio sin completar el circuito y volver más tarde en la misma sesión. Si te atoras, el menú de pausa permite reubicar a la astronauta o la nave conservando el progreso.
 
-La conexión se detecta sin reiniciar. Desconectar el mando o quitar el foco de la ventana pausa el juego. Los sticks usan una zona muerta radial del 18 %. **Share / F3** muestra ejes y botones en vivo mientras detiene el juego. Se recomienda USB para la primera prueba; Bluetooth depende del reconocimiento del dispositivo por Windows. No se han añadido vibración ni gatillos adaptativos.
+## Controles a pie
 
-## Escenario
+| Acción | DualShock 4 / DualSense | Teclado |
+| --- | --- | --- |
+| Caminar, según la cámara | Stick izquierdo | W / A / S / D |
+| Girar e inclinar la cámara | Stick derecho | Flechas |
+| Correr | Mantener R2 | Mantener Shift |
+| Salto corto | Tocar X y soltar | Tocar Espacio y soltar |
+| Salto cargado | Mantener X y soltar | Mantener Espacio y soltar |
+| Abordar, cerca de la nave | Triángulo | E |
+| Pausa y menú | Options | Escape / P |
+| Ayuda | Cruceta arriba | H |
+| Diagnóstico de mando | Share / Create | F3 |
+| Reubicar | Menú de pausa | R |
 
-- Sol animado con iluminación sobre los planetas.
-- Mercurio, Venus, Tierra, Marte, Júpiter, Saturno, Urano y Neptuno, cada uno con superficie procedural propia.
-- Continentes, océanos, nubes y casquetes para la Tierra; bandas para los gigantes gaseosos; anillos para Saturno y Urano.
-- Luna y cinturón de asteroides decorativo.
-- Órbitas y rotación animadas, fondo de estrellas y vista general del sistema.
-- Nave original en OBJ con los siete materiales de color base y estelas de los motores.
-- Radar, selección de destinos, indicador de velocidad y registro de ocho mundos explorados.
+Al cargar el salto, Luma se agacha y aparece una barra. A la carga máxima el salto se ejecuta automáticamente. Mantener el botón después no provoca saltos repetidos. El stick conserva su intensidad analógica para caminar despacio o a velocidad completa.
 
-Las dimensiones, distancias y velocidades son **escalas artísticas para jugar**, no una simulación astronómica a escala real. Los asteroides son decorativos; el Sol, los planetas y la Luna sí impiden atravesar su superficie. La exploración se conserva durante la sesión y se reinicia al cerrar el juego.
+## Controles de vuelo
 
-![Carta del sistema solar](screenshots/sistema.png)
+| Acción | Mando PlayStation | Teclado |
+| --- | --- | --- |
+| Avanzar / retroceder | R2 / L2 | W / S |
+| Orientación suave | Stick izquierdo | — |
+| Orientación directa | Stick derecho | Flechas |
+| Turbo | R3 | Shift |
+| Frenar | Círculo | X |
+| Elegir destino | L1 / R1 | [ / ] |
+| Trazar / cancelar ruta | Triángulo | F |
+| Ruta directa | — | 1–8: planetas; 9: Luna |
+| Descender / despegar | X | E |
+| Salir de la nave en H | Cuadrado | Q |
+| Mapa orbital | Cuadrado | Tab |
+| Desplazamiento lateral / vertical | — | A/D / Espacio,Ctrl |
+| Captura | — | F12 |
 
-## Jugar
+En vuelo, los sticks orientan la nave; los gatillos controlan el avance. Las estelas comparten la transformación de la nave y permanecen ancladas a sus motores.
 
-Se inicia cerca de la Tierra con la Luna seleccionada. Acércate a cada planeta para registrar una visita. Las teclas **1 a 8** activan una ruta automática al planeta correspondiente y **9** viaja a la Luna; cualquier entrada de movimiento devuelve el control manual.
+La conexión de mando se detecta sin reiniciar. Los sticks usan zona muerta radial del 18 %. Desconectar el mando o quitar el foco de la ventana pausa la partida. Para salir, utiliza el menú de pausa. No se incluyen vibración ni gatillos adaptativos.
 
-| Control | Acción |
-| --- | --- |
-| W / S | Impulso hacia adelante / atrás |
-| A / D | Desplazamiento lateral |
-| Flechas izquierda / derecha | Girar la nave |
-| Flechas arriba / abajo | Inclinar el rumbo |
-| Espacio / Ctrl izquierdo | Subir / bajar |
-| Shift izquierdo | Turbo |
-| X | Frenar |
-| 1–8 | Viajar a Mercurio–Neptuno |
-| 9 | Viajar a la Luna |
-| [ / ] | Seleccionar destino anterior / siguiente |
-| E | Descender en la Luna / despegar desde la plataforma H |
-| F | Iniciar o cancelar ruta al destino seleccionado |
-| Tab | Alternar mapa general y tercera persona |
-| O | Mostrar u ocultar órbitas |
-| P / Escape | Pausar y abrir el menú |
-| R | Reubicar la nave en el inicio orbital o en la plataforma lunar |
-| H | Mostrar u ocultar ayuda |
-| F12 | Guardar `screenshots/captura.png` |
-| F3 | Mostrar diagnóstico del mando |
+El DualShock 4 fue detectado y comprobado en versiones anteriores. En la revisión gráfica de la versión 0.3 no había mando conectado; el nuevo mapeo a pie está disponible para la prueba del jugador.
 
-Para salir, selecciona **Salir del juego** en el menú de pausa. La ayuda y el diagnóstico detienen la simulación. La reubicación conserva las visitas y balizas de la sesión.
+## Sistema solar
 
-El piloto automático asciende a un plano de crucero, viaja sobre las órbitas y desciende cerca del planeta. Sigue su posición mientras avanza la simulación. El vuelo manual tiene aceleración suave, frenado y protección contra colisiones con cuerpos celestes.
+Se conservan el Sol, Mercurio, Venus, Tierra, Marte, Júpiter, Saturno, Urano, Neptuno, la Luna, anillos y asteroides. Los planetas tienen superficies procedurales y órbitas animadas. La nave utiliza el OBJ original del Laboratorio 3 y sus materiales de color base.
+
+Las dimensiones y velocidades son escalas artísticas para jugar. El descenso está habilitado en la Luna; los otros planetas siguen disponibles para explorar en órbita. Los asteroides son decorativos.
 
 ## Compilar
 
-Requisitos:
+Requisitos: Rust 1.88 o posterior, Cargo, CMake, herramientas C/C++ y LLVM/libclang para construir raylib; un controlador gráfico compatible con OpenGL 3.3 para jugar.
 
-- Rust 1.88 o posterior y Cargo.
-- CMake y herramientas de compilación C/C++ para construir raylib.
-- LLVM/libclang para los bindings nativos.
-- GPU/controlador compatible con OpenGL 3.3.
-
-En Windows, usar Visual Studio 2022 con la carga de trabajo de C++, CMake y LLVM. Desde esta carpeta:
+En Windows puede utilizarse Visual Studio 2022 con C++, CMake y LLVM. Desde la raíz:
 
 ```powershell
-cargo run --release
+cargo run --release --locked
 ```
 
-Si CMake o libclang no están en las rutas de búsqueda, el script de ayuda localiza las instalaciones habituales de Visual Studio y LLVM:
+El script ayuda a localizar las instalaciones habituales de CMake y libclang:
 
 ```powershell
 .\jugar.ps1
 ```
 
-La primera compilación necesita descargar las dependencias de Cargo. Se incluye `Cargo.lock` para fijar las versiones. No es necesario tener Blender instalado para ejecutar el juego.
-
-Para llevar el ejecutable a otra carpeta, copiar `target/release/rana-solar.exe` **junto a la carpeta `assets`**. El OBJ y el MTL deben conservar sus nombres. Los shaders se incluyen en el ejecutable al compilar.
-
-## Capturas reproducibles
-
-```powershell
-cargo run --release -- --hidden --frames 8 --capture screenshots/vuelo.png
-cargo run --release -- --hidden --frames 8 --overview --capture screenshots/sistema.png
-cargo run --release -- --hidden --frames 8 --planet 6 --capture screenshots/saturno.png
-cargo run --release -- --hidden --lunar --frames 8 --capture screenshots/luna-v02.png
-cargo run --release -- --hidden --near-moon --frames 8 --capture screenshots/descenso-v02.png
-cargo run --release -- --hidden --controller-report --frames 8 --capture target/mando.png
-cargo run --release -- --hidden --smoke-tour --capture target/recorrido.png
-cargo run --release -- --hidden --flight-check --frames 8 --capture target/motores.png
-```
-
-`--hidden` crea una ventana oculta, pero sigue necesitando un contexto gráfico OpenGL. `--planet 1..8`, `--lunar` y `--near-moon` son posiciones de inspección. `--smoke-tour` ejecuta automáticamente la ruta lunar, ambas animaciones y el recorrido de balizas; termina con error si no completa la ida y vuelta. Estas opciones son herramientas de verificación, independientes de los controles normales.
-
-## Código
-
-| Archivo | Responsabilidad |
-| --- | --- |
-| `src/main.rs` | Ventana, teclado, bucle, cámara y capturas. |
-| `src/simulation.rs` | Órbitas, vuelo, colisiones, rutas y visitas. |
-| `src/scene.rs` | Modelos, estrellas, anillos, radar e interfaz. |
-| `src/controls.rs` | Teclado, mando, zonas muertas y acciones compartidas. |
-| `src/ship.rs` | Transformación compartida de la nave y los anclajes de los motores. |
-| `src/expedition.rs` | Estados de descenso, superficie y ascenso; balizas. |
-| `src/lunar.rs` | Escenario, cámara y señalización de la Base Nenúfar. |
-| `src/interface.rs` | Indicaciones, menú de pausa, ayuda y diagnóstico. |
-| `assets/shaders/world.vs` | Transformación de vértices y normales. |
-| `assets/shaders/world.fs` | Superficies procedurales, iluminación y atmósferas. |
-| `assets/RANA_56.obj` | Malla original de la nave rana. |
+La primera compilación descarga las dependencias de Cargo. `Cargo.lock` fija las versiones. Blender no es necesario para jugar. Para mover el ejecutable compilado, copia `target/release/rana-solar.exe` y `assets` a la misma carpeta. Los shaders se incluyen al compilar.
 
 ## Verificación
 
 ```powershell
 cargo test --release
-cargo clippy --release -- -D warnings
+cargo clippy --release --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-Las 14 pruebas cubren las órbitas, colisiones, llegada del piloto automático a los planetas y la Luna, condiciones de descenso, ida y vuelta, pausa, límites lunares, zonas muertas, orientación sin desplazamiento, aceleración en la dirección apuntada, respuesta de ambos sticks, anclaje y dirección de los motores al rotar, cancelación manual, consistencia del movimiento y proyección. Además se ejecuta el recorrido gráfico completo con los shaders reales. `--flight-check` congela una pose inclinada para inspeccionar las estelas; puede combinarse con `--lunar`.
+Las 18 pruebas cubren navegación, motores, movimiento a pie a distintas tasas de cuadros, paredes, aterrizaje sobre plataformas, obstrucción de cámara, salto corto/cargado, prevención de saltos repetidos, pausa y ciclo completo de salida y abordaje. Una prueba recorre las tres balizas mediante los controles de caminar y saltar, sin cambiar artificialmente la posición del personaje.
 
-Tecnología: [raylib](https://www.raylib.com/) y [raylib-rs](https://github.com/raylib-rs/raylib-rs). Todo el escenario se genera en código; no se descargan texturas durante el juego.
+Capturas y recorrido gráfico reproducibles:
+
+```powershell
+cargo run --release -- --hidden --portrait --frames 8 --capture screenshots/luma-v03.png
+cargo run --release -- --hidden --walking --frames 8 --capture screenshots/exploracion-v03.png
+cargo run --release -- --hidden --smoke-tour --capture target/recorrido-v03.png
+```
+
+`--smoke-tour` verifica viaje orbital, descenso, salida, circuito a pie con saltos, abordaje y ascenso. Termina con error si no completa el recorrido. `--hidden` necesita igualmente un contexto OpenGL. `--portrait` es una pose de inspección; `--walking` entra directamente a la zona a pie. Se conservan `--lunar`, `--near-moon`, `--planet 1..8`, `--overview`, `--controller-report` y `--flight-check` para revisión.
+
+## Código
+
+| Archivo | Responsabilidad |
+| --- | --- |
+| `src/main.rs` | Ventana, bucle, cámara y acciones según el modo. |
+| `src/astronaut.rs` | Movimiento, saltos, colisiones y cámara a pie. |
+| `src/frog.rs` | Modelo procedural y animaciones de Luma. |
+| `src/expedition.rs` | Descenso, salida, exploración, abordaje y ascenso. |
+| `src/controls.rs` | Teclado, mando y zonas muertas. |
+| `src/lunar.rs` | Base, plataformas, balizas e indicadores. |
+| `src/scene.rs` | Planetas, estrellas y recursos gráficos. |
+| `src/ship.rs` | Transformación compartida de nave y motores. |
+| `src/simulation.rs` | Órbitas, vuelo, piloto automático y colisiones orbitales. |
+| `src/interface.rs` | Ayuda, pausa y diagnóstico de mando. |
+| `assets/shaders/` | Superficies procedurales e iluminación. |
+
+Tecnología: [raylib](https://www.raylib.com/) y [raylib-rs](https://github.com/raylib-rs/raylib-rs). No se descargan texturas durante el juego.
