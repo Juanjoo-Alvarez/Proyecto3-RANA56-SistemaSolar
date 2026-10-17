@@ -3,11 +3,43 @@ use raylib::prelude::*;
 
 // Rig procedural: todas las piezas se expresan en el espacio local del personaje.
 // Los ojos rojos, flancos azules y discos naranjas identifican la rana de arbol.
+#[derive(Clone, Copy, PartialEq)]
+pub enum Species {
+    Tree,
+    Tomato,
+}
+#[derive(Default)]
+pub struct Pose {
+    pub talking: bool,
+    pub high_five: f32,
+}
 pub fn draw<D: RaylibDraw3D>(d: &mut D, mesh: &Model, a: &Astronaut) {
-    let suit = Color::new(225, 234, 222, 255);
+    draw_actor(d, mesh, a, Species::Tree, &Pose::default());
+}
+pub fn draw_actor<D: RaylibDraw3D>(
+    d: &mut D,
+    mesh: &Model,
+    a: &Astronaut,
+    species: Species,
+    pose: &Pose,
+) {
+    let tomato = species == Species::Tomato;
+    let suit = if tomato {
+        Color::new(223, 166, 92, 255)
+    } else {
+        Color::new(225, 234, 222, 255)
+    };
     let dark = Color::new(24, 55, 69, 255);
-    let green = Color::new(76, 191, 55, 255);
-    let lime = Color::new(143, 216, 65, 255);
+    let green = if tomato {
+        Color::new(220, 66, 37, 255)
+    } else {
+        Color::new(76, 191, 55, 255)
+    };
+    let lime = if tomato {
+        Color::new(255, 163, 85, 255)
+    } else {
+        Color::new(143, 216, 65, 255)
+    };
     let orange = Color::new(250, 133, 48, 255);
     let blue = Color::new(32, 122, 181, 255);
     let motion = length(v(a.velocity.x, 0.0, a.velocity.z));
@@ -30,6 +62,7 @@ pub fn draw<D: RaylibDraw3D>(d: &mut D, mesh: &Model, a: &Astronaut) {
     let base = a.position + v(0.0, bob, 0.0);
     let local = |p: Vector3| {
         let (s, c) = a.yaw.sin_cos();
+        let p = v(p.x * if tomato { 1.12 } else { 1.0 }, p.y, p.z);
         base + v(c * p.x + s * p.z, p.y, -s * p.x + c * p.z)
     };
     let ball = |d: &mut D, center: Vector3, size: Vector3, color: Color| {
@@ -131,16 +164,20 @@ pub fn draw<D: RaylibDraw3D>(d: &mut D, mesh: &Model, a: &Astronaut) {
         }
         let airborne = if !a.grounded { 0.33 } else { 0.0 };
         let shoulder = v(side * 0.62, body_y + 0.30, 0.0);
-        let elbow = v(
+        let mut elbow = v(
             side * (0.88 + airborne),
             body_y - 0.03 + airborne,
             step * 0.16,
         );
-        let hand = v(
+        let mut hand = v(
             side * (0.88 + airborne),
             body_y - 0.39 + airborne * 1.9,
             0.20 + step * 0.22,
         );
+        if side == if tomato { 1.0 } else { -1.0 } {
+            elbow = elbow + (v(side * 0.65, 2.35, 0.55) - elbow) * pose.high_five;
+            hand = hand + (v(0.0, 2.75, 1.0) - hand) * pose.high_five;
+        }
         ball(d, shoulder, v(0.22, 0.22, 0.23), suit);
         limb(d, shoulder, elbow, 0.13, green);
         ball(d, elbow, v(0.17, 0.17, 0.17), blue);
@@ -160,7 +197,12 @@ pub fn draw<D: RaylibDraw3D>(d: &mut D, mesh: &Model, a: &Astronaut) {
         );
     }
     let head = 2.15 - crouch;
-    ball(d, v(0.0, head, 0.03), v(0.78, 0.43, 0.55), green);
+    ball(
+        d,
+        v(0.0, head, 0.03),
+        v(0.78, if tomato { 0.60 } else { 0.43 }, 0.55),
+        green,
+    );
     ball(d, v(0.0, head - 0.16, 0.26), v(0.64, 0.20, 0.39), lime);
     // Boca sonriente: arco de segmentos sobre el hocico.
     for i in 0..8 {
@@ -169,6 +211,30 @@ pub fn draw<D: RaylibDraw3D>(d: &mut D, mesh: &Model, a: &Astronaut) {
         let y0 = head - 0.18 + x0 * x0 * 0.35;
         let y1 = head - 0.18 + x1 * x1 * 0.35;
         d.draw_line3D(local(v(x0, y0, 0.59)), local(v(x1, y1, 0.59)), dark);
+    }
+    if pose.talking {
+        ball(
+            d,
+            v(0.0, head - 0.16, 0.607),
+            v(0.22, 0.025 + (a.time * 16.0).sin().abs() * 0.10, 0.035),
+            dark,
+        );
+    }
+    if tomato {
+        // Llave de mecanica en el cinturon.
+        limb(
+            d,
+            v(-0.62, 0.8, 0.31),
+            v(-0.62, 1.42, 0.31),
+            0.06,
+            Color::LIGHTGRAY,
+        );
+        ball(
+            d,
+            v(-0.62, 1.45, 0.31),
+            v(0.16, 0.13, 0.07),
+            Color::LIGHTGRAY,
+        );
     }
     let blink = (a.time % 4.7) > 4.52;
     for side in [-1.0, 1.0] {
@@ -181,14 +247,22 @@ pub fn draw<D: RaylibDraw3D>(d: &mut D, mesh: &Model, a: &Astronaut) {
             if blink {
                 green
             } else {
-                Color::new(229, 60, 35, 255)
+                if tomato {
+                    Color::new(249, 202, 65, 255)
+                } else {
+                    Color::new(229, 60, 35, 255)
+                }
             },
         );
         if !blink {
             ball(
                 d,
                 eye + v(0.0, 0.0, 0.31),
-                v(0.055, 0.22, 0.035),
+                v(
+                    if tomato { 0.17 } else { 0.055 },
+                    if tomato { 0.075 } else { 0.22 },
+                    0.035,
+                ),
                 Color::new(12, 25, 24, 255),
             );
             ball(

@@ -36,8 +36,17 @@ pub enum Phase {
     OnFoot,
     Boarding,
     Launch,
+    Rescue,
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum Zone {
+    #[default]
+    Moon,
+    Mercury,
 }
 pub struct Expedition {
+    pub zone: Zone,
+    pub rescue: crate::rescue::Rescue,
     pub phase: Phase,
     pub progress: f32,
     pub local: World,
@@ -49,6 +58,8 @@ pub struct Expedition {
 impl Default for Expedition {
     fn default() -> Self {
         Self {
+            zone: Zone::Moon,
+            rescue: crate::rescue::Rescue::default(),
             phase: Phase::Orbit,
             progress: 0.0,
             local: surface_ship(),
@@ -67,10 +78,25 @@ fn surface_ship() -> World {
     }
 }
 impl Expedition {
+    fn reset_astronaut(&mut self) {
+        self.astronaut = Astronaut::default();
+        self.astronaut.mercury = self.zone == Zone::Mercury;
+        self.rescue.heat = 0.0;
+    }
+    pub fn landing_zone(&self, orbit: &World) -> Option<Zone> {
+        if length(orbit.position - moon_position(orbit.time)) < 13.0 {
+            Some(Zone::Moon)
+        } else if length(orbit.position - PLANETS[0].position(orbit.time)) < 17.0 {
+            Some(Zone::Mercury)
+        } else {
+            None
+        }
+    }
+
     pub fn astronaut_visible(&self) -> bool {
         matches!(
             self.phase,
-            Phase::OnFoot | Phase::Disembark | Phase::Boarding
+            Phase::OnFoot | Phase::Disembark | Phase::Boarding | Phase::Rescue
         )
     }
     pub fn disembark(&mut self) {
@@ -79,12 +105,12 @@ impl Expedition {
             self.local.position.y = 1.2;
             self.phase = Phase::Disembark;
             self.progress = 0.0;
-            self.astronaut = Astronaut::default();
+            self.reset_astronaut();
         }
     }
     pub fn can_land(&self, orbit: &World) -> bool {
         self.phase == Phase::Orbit
-            && length(orbit.position - moon_position(orbit.time)) < 13.0
+            && self.landing_zone(orbit).is_some()
             && length(orbit.velocity) < 8.0
     }
     pub fn at_pad(&self) -> bool {
@@ -93,6 +119,7 @@ impl Expedition {
     pub fn interact(&mut self, orbit: &mut World) {
         match self.phase {
             Phase::Orbit if self.can_land(orbit) => {
+                self.zone = self.landing_zone(orbit).unwrap();
                 orbit.autopilot = None;
                 orbit.velocity = v(0.0, 0.0, 0.0);
                 self.local = surface_ship();
@@ -103,7 +130,22 @@ impl Expedition {
                 self.phase = Phase::Launch;
                 self.progress = 0.0;
             }
+            Phase::OnFoot
+                if self.zone == Zone::Mercury && self.rescue.interact(&self.astronaut) =>
+            {
+                if self.rescue.status == crate::rescue::Status::Celebration {
+                    self.phase = Phase::Rescue;
+                }
+            }
             Phase::OnFoot if self.astronaut.near_ship() => {
+                if self.zone == Zone::Mercury && self.rescue.status == crate::rescue::Status::Escort
+                {
+                    if !self.rescue.brasa.near_ship() {
+                        return;
+                    }
+                    self.rescue.boarding_start = self.rescue.brasa.position;
+                    self.rescue.status = crate::rescue::Status::Aboard;
+                }
                 self.phase = Phase::Boarding;
                 self.progress = 0.0;
                 self.boarding_start = self.astronaut.position;
@@ -112,11 +154,14 @@ impl Expedition {
         }
     }
     pub fn restart(&mut self, orbit: &mut World) {
+        if self.phase == Phase::Rescue {
+            return;
+        }
         if self.phase == Phase::Orbit {
             orbit.reset();
-            orbit.selected = MOON;
+            orbit.selected = if self.zone == Zone::Moon { MOON } else { 0 };
         } else if self.astronaut_visible() {
-            self.astronaut = Astronaut::default();
+            self.reset_astronaut();
             self.phase = Phase::OnFoot;
         } else {
             self.local = surface_ship();
@@ -148,12 +193,20 @@ impl Expedition {
                         self.disembark();
                     } else {
                         self.phase = Phase::Orbit;
-                        orbit.position = moon_position(orbit.time) + v(0.0, 5.0, 10.0);
+                        orbit.position = destination_position(
+                            if self.zone == Zone::Moon { MOON } else { 0 },
+                            orbit.time,
+                        ) + v(0.0, 5.0, 10.0);
+                        if self.zone == Zone::Mercury
+                            && self.rescue.status == crate::rescue::Status::Aboard
+                        {
+                            self.rescue.status = crate::rescue::Status::Complete;
+                        }
                         orbit.velocity = v(0.0, 0.0, 0.0);
                         orbit.yaw = 0.0;
                         orbit.pitch = 0.1;
-                        orbit.notify("Ascenso completado. De vuelta en orbita lunar.".into());
-                        if self.beacons.iter().all(|b| *b) {
+                        orbit.notify("Ascenso completado. De vuelta en órbita.".into());
+                        if self.zone == Zone::Moon && self.beacons.iter().all(|b| *b) {
                             self.completed = true;
                         }
                     }
@@ -171,6 +224,17 @@ impl Expedition {
                     (self.boarding_start, door)
                 };
                 self.astronaut.position = from + (to - from) * t;
+                if self.phase == Phase::Boarding
+                    && self.zone == Zone::Mercury
+                    && self.rescue.status == crate::rescue::Status::Aboard
+                {
+                    self.rescue.brasa.position =
+                        self.rescue.boarding_start + (door - self.rescue.boarding_start) * t;
+                    self.rescue.brasa.time += dt;
+                    self.rescue.brasa.animation += dt * 10.0;
+                    self.rescue.brasa.velocity = v(-2.0, 0.0, 0.0);
+                    self.rescue.brasa.yaw = -std::f32::consts::FRAC_PI_2;
+                }
                 self.astronaut.time += dt;
                 self.astronaut.animation += dt * 10.0;
                 self.astronaut.velocity = v(2.0, 0.0, 0.0);
@@ -182,7 +246,7 @@ impl Expedition {
                 if self.progress >= 1.0 {
                     if self.phase == Phase::Disembark {
                         self.phase = Phase::OnFoot;
-                        self.astronaut = Astronaut::default();
+                        self.reset_astronaut();
                     } else {
                         self.phase = Phase::Surface;
                         self.local = surface_ship();
@@ -194,10 +258,27 @@ impl Expedition {
                 self.local.time += dt;
                 self.local.thrust = 0.05;
                 self.astronaut.update(walk, dt);
-                for (i, beacon) in BEACONS.iter().enumerate() {
+                if self.zone == Zone::Mercury {
+                    if !self.rescue.unlocked() && (self.astronaut.position.x - 8.0).abs() < 6.5 {
+                        self.astronaut.position.z = self.astronaut.position.z.max(-28.2);
+                    }
+                    self.rescue.update(&mut self.astronaut, dt);
+                }
+                for (i, beacon) in BEACONS
+                    .iter()
+                    .enumerate()
+                    .filter(|_| self.zone == Zone::Moon)
+                {
                     if length(self.astronaut.position + v(0.0, 1.4, 0.0) - *beacon) < 2.7 {
                         self.beacons[i] = true;
                     }
+                }
+            }
+            Phase::Rescue => {
+                self.local.time += dt;
+                self.rescue.update(&mut self.astronaut, dt);
+                if self.rescue.status == crate::rescue::Status::Escort {
+                    self.phase = Phase::OnFoot;
                 }
             }
             Phase::Surface => {
@@ -243,6 +324,56 @@ impl Expedition {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn first_rescue_plays_from_orbit_through_dialogue_and_returns_with_brasa() {
+        let mut world = World::default();
+        world.travel(0);
+        let mut e = Expedition::default();
+        let mut pilot = crate::rescue::RescuePilot::default();
+        let mut comms = crate::comms::Comms::default();
+        let mut celebrated = false;
+        for frame in 0..9000 {
+            let mut walk = WalkInput::default();
+            if comms.blocking() {
+                comms.reveal_all();
+                comms.advance();
+            } else {
+                match e.phase {
+                    Phase::Orbit if e.can_land(&world) => e.interact(&mut world),
+                    Phase::OnFoot => {
+                        walk = pilot.input(&e.astronaut, &e.rescue);
+                        if pilot.interact(&e.astronaut, &e.rescue) {
+                            e.interact(&mut world);
+                        }
+                    }
+                    Phase::Surface => e.interact(&mut world),
+                    _ => {}
+                }
+                e.update(&mut world, Input::default(), walk, 1.0 / 60.0);
+            }
+            comms.observe(&e, e.beacons);
+            comms.update(1.0 / 60.0);
+            celebrated |= e.rescue.high_five() > 0.9;
+            if e.rescue.thermal_shield() {
+                break;
+            }
+            assert!(
+                frame < 8999,
+                "Rescate incompleto {:?}, paso {}, posicion {:?}",
+                e.rescue.status,
+                pilot.waypoint,
+                e.astronaut.position
+            );
+        }
+        assert!(celebrated);
+        assert_eq!(e.phase, Phase::Orbit);
+        assert_eq!(e.zone, Zone::Mercury);
+        assert!(e.rescue.thermal_shield());
+        assert_eq!(e.rescue.overheats, 0);
+        assert_eq!(comms.conversations_finished, 1);
+        assert!(length(world.position - PLANETS[0].position(world.time)) < 17.0);
+        assert!(!e.completed);
+    }
     #[test]
     fn landing_requires_proximity_and_slow_speed() {
         let mut world = World::default();

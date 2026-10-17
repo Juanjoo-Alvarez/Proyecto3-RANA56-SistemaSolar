@@ -18,12 +18,18 @@ pub struct Speaker {
 #[derive(Clone, Copy)]
 pub enum Portrait {
     Luma,
+    Brasa,
     Terminal,
 }
 pub const LUMA: Speaker = Speaker {
     name: "Luma",
     role: "Capitana · RANA-56",
     portrait: Portrait::Luma,
+};
+pub const BRASA: Speaker = Speaker {
+    name: "Brasa",
+    role: "Mecánica · Rana tomate",
+    portrait: Portrait::Brasa,
 };
 pub const BASE: Speaker = Speaker {
     name: "Nenúfar",
@@ -91,11 +97,14 @@ impl Comms {
         }
     }
     pub fn radio_once(&mut self, id: &'static str, text: impl Into<String>) {
+        self.radio_from_once(id, LUMA, text);
+    }
+    pub fn radio_from_once(&mut self, id: &'static str, speaker: Speaker, text: impl Into<String>) {
         if !self.seen.insert(id) {
             return;
         }
         self.radio.push_back(Message {
-            speaker: LUMA,
+            speaker,
             text: text.into(),
             kind: Kind::Radio,
         });
@@ -108,21 +117,18 @@ impl Comms {
             || !self.conversation.is_empty()
     }
     pub fn begin_conversation(&mut self) {
+        self.begin_script(&[
+            (LUMA,"Base Nenúfar, aquí Luma. ¿Reciben mi señal?"),
+            (BASE,"Activa las tres balizas. Usa los escalones y un salto cargado para alcanzar la plataforma central."),
+            (LUMA,"¡Entendido! Revisaré la señal y regresaré a la RANA-56."),
+        ]);
+    }
+    pub fn begin_script(&mut self, script: &[(Speaker, &str)]) {
         if self.blocking() {
             return;
         }
         self.suspended = self.active.take();
-        for (speaker, text) in [
-            (LUMA, "Base Nenúfar, aquí Luma. ¿Reciben mi señal?"),
-            (
-                BASE,
-                "Te recibimos, capitana. Activa las tres balizas. Usa los escalones y un salto cargado para alcanzar la plataforma central.",
-            ),
-            (
-                LUMA,
-                "¡Entendido! Revisaré la señal y regresaré a la RANA-56. Mi tripulación cuenta conmigo.",
-            ),
-        ] {
+        for &(speaker, text) in script {
             self.conversation.push_back(Message {
                 speaker,
                 text: text.into(),
@@ -166,7 +172,60 @@ impl Comms {
             }
         }
     }
+    fn observe_rescue(&mut self, e: &Expedition) {
+        use crate::rescue::Status;
+        if e.phase == Phase::OnFoot {
+            self.radio_from_once("mercury_intro",BRASA,"¡Capitana! El refugio está bloqueado. Apaga los tres colectores. Bajo los techos azules puedes enfriar tu traje.");
+        }
+        for (i, done) in e.rescue.collectors.iter().enumerate() {
+            if *done {
+                self.radio_once(
+                    ["solar1", "solar2", "solar3"][i],
+                    format!(
+                        "Colector {} apagado. {}/3.{}",
+                        i + 1,
+                        e.rescue.collectors.iter().filter(|b| **b).count(),
+                        if e.rescue.unlocked() {
+                            " ¡El refugio está abierto!"
+                        } else {
+                            ""
+                        }
+                    ),
+                );
+            }
+        }
+        if e.rescue.overheats > 0 {
+            self.radio_once("overheat","El sistema de emergencia me devolvió a la nave. Usaré las sombras para enfriar el traje.");
+        }
+        if e.rescue.status == Status::Celebration && self.seen.insert("rescue_dialog") {
+            self.begin_script(&[
+                (
+                    BRASA,
+                    "¡Luma! Sabía que vendrías. Hasta una rana tomate necesita un poco de sombra.",
+                ),
+                (LUMA, "Ninguna rana se queda atrás. ¡Choca esa pata, Brasa!"),
+                (
+                    BRASA,
+                    "Volvamos a la nave. Tengo un escudo térmico que instalar en la RANA-56.",
+                ),
+            ]);
+        }
+        if e.rescue.status == Status::Escort {
+            self.radio_from_once("escort",BRASA,"¡Tripulación reunida! Iré al punto de abordaje. Nos vemos junto a la nave, capitana.");
+        }
+        if e.rescue.thermal_shield() {
+            self.radio_from_once("rescued",BRASA,"¡De vuelta en casa! Escudo térmico instalado: el turbo de la RANA-56 ahora alcanza un 15 % más de velocidad.");
+            if self.seen.insert("rescue_toast") {
+                self.toast = "Brasa a salvo · Escudo térmico".into();
+                self.toast_left = 3.5;
+            }
+        }
+    }
     pub fn observe(&mut self, e: &Expedition, before: [bool; 3]) {
+        if e.zone == crate::expedition::Zone::Mercury {
+            self.observe_rescue(e);
+            return;
+        }
         if e.phase == Phase::OnFoot {
             self.radio_once(
                 "boots",

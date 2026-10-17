@@ -159,6 +159,7 @@ pub struct Autopilot {
 }
 
 pub struct World {
+    pub thermal_shield: bool,
     pub time: f32,
     pub position: Vector3,
     pub velocity: Vector3,
@@ -184,6 +185,7 @@ impl Default for World {
             steering: Vector2::zero(),
             selected: 8,
             autopilot: None,
+            thermal_shield: false,
             visited: [false; 8],
             paused: false,
             thrust: 0.0,
@@ -229,8 +231,10 @@ impl World {
     }
     pub fn reset(&mut self) {
         let visited = self.visited;
+        let shield = self.thermal_shield;
         *self = Self::default();
         self.visited = visited;
+        self.thermal_shield = shield;
     }
     pub fn target_distance(&self) -> f32 {
         (length(self.position - destination_position(self.selected, self.time))
@@ -254,7 +258,11 @@ impl World {
         if length(desired) > 1.0 {
             desired = unit(desired);
         }
-        desired *= if input.boost { 95.0 } else { 30.0 };
+        desired *= if input.boost {
+            95.0 * if self.thermal_shield { 1.15 } else { 1.0 }
+        } else {
+            30.0
+        };
         if let Some(mut pilot) = self.autopilot {
             let target = destination_position(pilot.target, self.time);
             let approach = target
@@ -373,6 +381,32 @@ pub fn destination_radius(index: usize) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn rescued_mechanic_improves_turbo_and_upgrade_survives_repositioning() {
+        let run = |shield| {
+            let mut w = World {
+                position: v(150.0, 180.0, 0.0),
+                thermal_shield: shield,
+                ..Default::default()
+            };
+            for _ in 0..120 {
+                w.update(
+                    Input {
+                        thrust: 1.0,
+                        boost: true,
+                        ..Default::default()
+                    },
+                    1.0 / 60.0,
+                );
+            }
+            w
+        };
+        let normal = run(false);
+        let mut upgraded = run(true);
+        assert!(length(upgraded.velocity) > length(normal.velocity) * 1.14);
+        upgraded.reset();
+        assert!(upgraded.thermal_shield);
+    }
     #[test]
     fn eight_orbits_are_ordered_and_non_overlapping() {
         for pair in PLANETS.windows(2) {

@@ -1,86 +1,66 @@
 # RANA / 56 — Operación Croac
 
-**Proyecto 3 · Versión 0.3.1 · HUD y comunicaciones**
+**Proyecto 3 · Versión 0.4.0 · Primer rescate en Mercurio**
 
 Juan Jose Rivas Alvarez · Carnet 24856
 
-Aventura del sistema solar en **Rust y raylib 6.0.0**. Pilota la nave RANA-56, aterriza en la Luna y explora a pie con **Luma**, una rana de árbol de ojos rojos con traje espacial. La versión 0.3 agrega movimiento, saltos, cámara, animaciones y un circuito de plataformas para probarlos.
+Aventura del sistema solar en **Rust y raylib 6.0.0**. Pilota la RANA-56 y explora a pie con **Luma**, una rana de árbol de ojos rojos. En esta versión podrás rescatar a **Brasa**, una rana tomate mecánica atrapada en Mercurio.
 
-![Radio de Luma con la nueva HUD](screenshots/radio-v031.png)
+![Estación Girasol y comunicación 3D de Brasa](screenshots/mercurio-v04.png)
 
-## Hotfix 0.3.1: HUD y radio
+## Jugar la versión 0.4
 
-- Tipografía redondeada Nunito, con pesos distintos para títulos y texto, acentos y filtrado suave.
-- Paneles compactos, colores crema/menta/dorado y detalles de nenúfar. Los controles completos viven en la ayuda.
-- A pie: ubicación, tres señales, orientación hacia la nave y acciones cercanas. La barra de salto solo aparece al cargar.
-- En vuelo: destino, distancia, velocidad, impulso y radar. La lista de destinos se muestra dentro del mapa.
-- Símbolos de los botones PlayStation dibujados en código. Los avisos cambian entre mando y teclado según el último dispositivo utilizado.
-- Caja de comunicaciones inspirada en los juegos de aventura espacial de N64: retrato animado, nombre, función, texto progresivo y aviso de avance.
-- Mensajes de radio por eventos de Luma: salida, aprendizaje del salto, balizas y final del circuito. Se encolan y se emiten una sola vez por sesión.
-- Aviso breve con retrato al conectar una baliza.
+La carpeta local **`dist/RANA56-v0.4.0/`** contiene el ejecutable, los recursos y las instrucciones. Cada versión conserva su carpeta independiente.
 
-### Probar las comunicaciones
+- **`rana-solar.exe`**: empieza en el sistema solar, con Mercurio seleccionado.
+- **`PrimerRescate.cmd`**: empieza directamente a pie en Mercurio.
+- **`ExplorarLaLuna.cmd`**: entra al circuito lunar de entrenamiento.
 
-La **radio** permite seguir jugando. Pulsa **cruceta abajo / Enter** para completar el texto; vuelve a pulsar para cerrar ese mensaje. También desaparece automáticamente después de dejar tiempo para leerlo.
+Conserva `assets` junto al ejecutable. Las versiones se publican como [releases de GitHub](https://github.com/Juanjoo-Alvarez/Proyecto3-RANA56-SistemaSolar/releases), sin generar ni adjuntar ZIP propios. Para construir el juego desde GitHub, sigue la sección Compilar.
 
-Para una **conversación directa**, camina hacia la terminal de pantalla verde, unos pasos a la derecha de la nave, y pulsa **Triángulo / E** cuando aparezca «Hablar con la base». La acción se detiene mientras lees. Pulsa **X / Enter** para completar el texto y vuelve a pulsar para avanzar. Al terminar recuperas el control. Una radio interrumpida por una conversación conserva su progreso y continúa después.
+## Misión: ninguna rana se queda atrás
 
-El sistema guarda el personaje, su función y retrato por mensaje para incorporar a los tripulantes en futuras versiones. Esta entrega contiene a Luma y a la terminal Nenúfar; los rescates siguen previstos para las siguientes versiones. No incluye voces grabadas.
+1. Pulsa **Triángulo / F** para trazar una ruta a Mercurio. Puedes elegir los demás destinos con L1/R1 o [ y ]; **1** traza la ruta directa a Mercurio.
+2. Al llegar, pulsa **X / E** para descender. El vuelo manual necesita proximidad y velocidad inferior a 8 u/s. Luma sale de la nave automáticamente.
+3. Busca los **tres colectores**, identificados por consolas doradas y techos azules. Cerca de cada uno, pulsa **Triángulo / E** para apagarlo.
+4. Vigila la temperatura. Las sombras bajo los techos y el área de la nave enfrían el traje. Al sobrecalentarte, vuelves al punto de partida y conservas los colectores apagados. Apagar los tres restaura la refrigeración de la instalación.
+5. Acércate a la entrada del **refugio de Brasa** y pulsa **Triángulo / E**. La barrera solo se abre cuando los tres colectores están apagados.
+6. Completa la conversación con **X / Enter**. Luma y Brasa celebran con un **choque de patas en 3D**.
+7. Brasa camina por una ruta segura hasta el punto de abordaje. Regresa al lado derecho de la nave y espera a que llegue. Pulsa **Triángulo / E** para abordar juntas.
+8. En cabina, pulsa **X / E** para despegar. Al volver a órbita, el rescate queda completado y Brasa instala el **escudo térmico de los motores**, que permite un **15 % más de velocidad de turbo**.
 
-![Conversación con la terminal Nenúfar](screenshots/dialogo-v031.png)
+Puedes retirarte antes de completar el rescate y volver después. Reubicar desde pausa conserva el progreso. Las balizas, colectores, tripulante y mejora se mantienen **durante la sesión**; todavía no hay guardado en disco. Este primer rescate corresponde a Mercurio; los demás planetas continúan disponibles para explorar en órbita.
 
-## Qué incluye la versión 0.3
+![Luma y Brasa chocando las patas](screenshots/rescate-v04.png)
 
-- Personaje 3D generado en código: piel verde, ojos rojos, detalles azules, dedos naranjas, mochila de oxígeno y casco transparente.
-- Animaciones de reposo, respiración, parpadeo, caminar/correr, preparación del salto, vuelo y amortiguación al aterrizar.
-- Movimiento relativo a la cámara, carrera analógica, salto corto y salto cargado.
-- Colisiones con suelo, paredes, nave y plataformas; cámara que se acerca para evitar obstáculos.
-- Salida automática de la nave después del descenso y animación para volver a abordar.
-- Tres balizas que se activan **a pie**, con escalones y plataformas de diferentes alturas.
-- Vuelo orbital y lunar, mando PlayStation, ayuda, pausa y diagnóstico de la versión 0.2.1.
+## Comunicaciones con modelos 3D
 
-El circuito es una zona de práctica de la astronauta. Los rescates de la tripulación y sus celebraciones corresponden a las próximas versiones. Las visitas y balizas se mantienen durante la sesión; todavía no hay guardado en disco.
+Los recuadros muestran **los mismos modelos y el mismo rig procedural que se usan en el escenario**, dibujados desde una cámara de retrato en tiempo real. Luma conserva su traje, mochila, casco y ojos rojos. Brasa tiene piel roja/anaranjada, cabeza más redonda, ojos dorados con pupila horizontal y una llave de mecánica en el cinturón.
 
-![Circuito de exploración lunar](screenshots/exploracion-v03.png)
+Hay respiración, pequeños giros, parpadeo y movimiento de boca mientras aparece el texto. Las cámaras reutilizan sus recursos gráficos; no se utilizan sprites ni imágenes prerenderizadas para los personajes. La terminal Nenúfar también se representa como un objeto 3D. No hay voces grabadas.
 
-## Probar hoy
+La **radio** permite seguir jugando y se cierra con **cruceta abajo / Enter**, o automáticamente tras un tiempo de lectura. Las **conversaciones directas** detienen la acción y avanzan con **X / Enter**. La primera pulsación completa el texto y la siguiente pasa al siguiente mensaje. Las conversaciones conservan la radio que hayan interrumpido.
 
-En la carpeta local `dist/RANA56-v0.3.1/`:
-
-- Abre **`rana-solar.exe`** para empezar en el sistema solar.
-- Abre **`ExplorarLaLuna.cmd`** para comenzar directamente junto a la nave y probar a Luma.
-- Conserva `assets` junto al ejecutable. Cada versión tiene su propia carpeta.
-
-Recorrido completo:
-
-1. La Luna comienza seleccionada. Pulsa **Triángulo / F** para viajar automáticamente.
-2. Al llegar, pulsa **X / E** para descender. El vuelo manual requiere estar cerca y por debajo de 8 u/s.
-3. Tras aterrizar, Luma sale de la nave automáticamente.
-4. Camina por la base, salta a las plataformas y activa las tres balizas doradas. La central se alcanza desde los escalones con un salto cargado.
-5. Regresa al lado derecho de la nave, donde saliste. Pulsa **Triángulo / E** para abordar cuando aparezca el aviso.
-6. Ya en cabina, pulsa **X / E** para despegar. También puedes volver a salir con **Cuadrado / Q** mientras estás en H.
-
-Puedes regresar al espacio sin completar el circuito y volver más tarde en la misma sesión. Si te atoras, el menú de pausa permite reubicar a la astronauta o la nave conservando el progreso.
+![Luma usando su modelo 3D en la radio](screenshots/luma-3d-v04.png)
 
 ## Controles a pie
 
-| Acción | DualShock 4 / DualSense | Teclado |
+| Acción | Mando PlayStation | Teclado |
 | --- | --- | --- |
-| Caminar, según la cámara | Stick izquierdo | W / A / S / D |
-| Girar e inclinar la cámara | Stick derecho | Flechas |
+| Caminar según la cámara | Stick izquierdo | WASD |
+| Cámara | Stick derecho | Flechas |
 | Correr | Mantener R2 | Mantener Shift |
-| Salto corto | Tocar X y soltar | Tocar Espacio y soltar |
-| Salto cargado | Mantener X y soltar | Mantener Espacio y soltar |
-| Abordar, cerca de la nave | Triángulo | E |
-| Pausa y menú | Options | Escape / P |
-| Ayuda | Cruceta arriba | H |
-| Diagnóstico de mando | Share / Create | F3 |
-| Hablar con la terminal | Triángulo | E |
+| Salto corto | Tocar y soltar X | Tocar y soltar Espacio |
+| Salto cargado | Mantener y soltar X | Mantener y soltar Espacio |
+| Colector, refugio, terminal o abordaje | Triángulo | E |
 | Completar / avanzar conversación | X | Enter |
 | Completar / cerrar radio | Cruceta abajo | Enter |
-| Reubicar | Menú de pausa | R |
+| Pausa | Options | Escape / P |
+| Ayuda | Cruceta arriba | H |
+| Diagnóstico de mando | Share / Create | F3 |
+| Reubicar conservando progreso | Menú de pausa | R |
 
-Al cargar el salto, Luma se agacha y aparece una barra. A la carga máxima el salto se ejecuta automáticamente. Mantener el botón después no provoca saltos repetidos. El stick conserva su intensidad analógica para caminar despacio o a velocidad completa.
+La carga máxima ejecuta el salto automáticamente y mantener el botón no repite el salto. El movimiento conserva la intensidad analógica del stick.
 
 ## Controles de vuelo
 
@@ -95,42 +75,32 @@ Al cargar el salto, Luma se agacha y aparece una barra. A la carga máxima el sa
 | Trazar / cancelar ruta | Triángulo | F |
 | Ruta directa | — | 1–8: planetas; 9: Luna |
 | Descender / despegar | X | E |
-| Salir de la nave en H | Cuadrado | Q |
+| Salir de la nave en el helipuerto | Cuadrado | Q |
 | Mapa orbital | Cuadrado | Tab |
 | Desplazamiento lateral / vertical | — | A/D / Espacio,Ctrl |
-| Captura | — | F12 |
+| Captura de pantalla | — | F12 |
 
-En vuelo, los sticks orientan la nave; los gatillos controlan el avance. Las estelas comparten la transformación de la nave y permanecen ancladas a sus motores.
+Los sticks orientan la nave y los gatillos impulsan. Los propulsores comparten su transformación con la nave. Desconectar el mando o quitar el foco pausa la partida. Se detectan mandos sin reiniciar, con zona muerta radial del 18 %. Los avisos cambian según el último dispositivo utilizado.
 
-La conexión de mando se detecta sin reiniciar. Los sticks usan zona muerta radial del 18 %. Desconectar el mando o quitar el foco de la ventana pausa la partida. Para salir, utiliza el menú de pausa. No se incluyen vibración ni gatillos adaptativos.
+El DualShock 4 se comprobó físicamente en versiones anteriores. No había mando conectado durante la revisión de la 0.4; se verificaron los controles por código y los avisos PlayStation en pantalla. No hay vibración ni gatillos adaptativos.
 
-El DualShock 4 fue detectado y comprobado en versiones anteriores. En la revisión gráfica de la versión 0.3 no había mando conectado; el nuevo mapeo a pie está disponible para la prueba del jugador.
+## Luna y sistema solar
 
-## Sistema solar
+La Luna conserva Base Nenúfar, la terminal de conversación y las tres balizas del circuito de plataformas. Selecciona **9** para viajar allí. Las balizas se activan acercándote **a pie**; utiliza los escalones y el salto cargado para la plataforma central. Puedes abordar y volver a órbita igual que en Mercurio.
 
-Se conservan el Sol, Mercurio, Venus, Tierra, Marte, Júpiter, Saturno, Urano, Neptuno, la Luna, anillos y asteroides. Los planetas tienen superficies procedurales y órbitas animadas. La nave utiliza el OBJ original del Laboratorio 3 y sus materiales de color base.
+Se conservan el Sol, los ocho planetas, la Luna, los anillos y los asteroides decorativos. Las órbitas y superficies son procedurales, con escalas artísticas. La RANA-56 utiliza el OBJ original del Laboratorio 3 y sus materiales de color base.
 
-Las dimensiones y velocidades son escalas artísticas para jugar. El descenso está habilitado en la Luna; los otros planetas siguen disponibles para explorar en órbita. Los asteroides son decorativos.
+## Compilar y verificar
 
-## Compilar
-
-Requisitos: Rust 1.88 o posterior, Cargo, CMake, herramientas C/C++ y LLVM/libclang para construir raylib; un controlador gráfico compatible con OpenGL 3.3 para jugar.
-
-En Windows puede utilizarse Visual Studio 2022 con C++, CMake y LLVM. Desde la raíz:
+Requisitos: Rust 1.88 o posterior, Cargo, CMake, herramientas C/C++, LLVM/libclang y un controlador compatible con OpenGL 3.3. En Windows puede utilizarse Visual Studio 2022 con C++, CMake y LLVM.
 
 ```powershell
 cargo run --release --locked
-```
-
-El script ayuda a localizar las instalaciones habituales de CMake y libclang:
-
-```powershell
+# Alternativa que localiza CMake y libclang en Windows:
 .\jugar.ps1
 ```
 
-La primera compilación descarga las dependencias de Cargo. `Cargo.lock` fija las versiones. Blender no es necesario para jugar. Para mover el ejecutable compilado, copia `target/release/rana-solar.exe` y `assets` a la misma carpeta. Los shaders se incluyen al compilar.
-
-## Verificación
+La primera compilación descarga dependencias. `Cargo.lock` fija sus versiones. Blender y herramientas de generación de fuentes no son necesarios para jugar.
 
 ```powershell
 cargo test --release
@@ -138,40 +108,30 @@ cargo clippy --release --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-Las 21 pruebas cubren navegación, motores, movimiento a pie a distintas tasas de cuadros, paredes, aterrizaje sobre plataformas, obstrucción de cámara, salto corto/cargado, prevención de saltos repetidos, pausa y ciclo completo de salida y abordaje. Las nuevas pruebas verifican texto Unicode, cola de mensajes, prevención de repeticiones y recuperación de una radio tras una conversación. Una prueba recorre las tres balizas mediante los controles de caminar y saltar, sin cambiar artificialmente la posición del personaje.
+**25 pruebas** verifican vuelo, mandos, propulsores, saltos, colisiones, cámara, comunicaciones Unicode y retorno de la radio. La prueba del rescate recorre desde la órbita hasta el regreso con Brasa, mediante entradas reales de movimiento e interacción: verifica los tres colectores, la conversación, el choque de patas, el abordaje y la recompensa. También se prueban sombra/calor, reintento sin perder progreso y el aumento real del turbo.
 
-Capturas y recorrido gráfico reproducibles:
+Capturas y recorridos gráficos reproducibles:
 
 ```powershell
-cargo run --release -- --hidden --portrait --frames 8 --capture screenshots/luma-v03.png
-cargo run --release -- --hidden --walking --frames 8 --capture screenshots/exploracion-v03.png
-cargo run --release -- --hidden --smoke-tour --capture target/recorrido-v03.png
-cargo run --release -- --hidden --radio-preview --pad-preview --frames 8 --capture screenshots/radio-v031.png
-cargo run --release -- --hidden --dialogue-preview --compact --pad-preview --frames 8 --capture screenshots/dialogo-v031.png
-cargo run --release -- --hidden --overview --frames 8 --capture screenshots/mapa-v031.png
+cargo run --release -- --hidden --mercury --radio-preview --pad-preview --capture screenshots/mercurio-v04.png
+cargo run --release -- --hidden --celebration-preview --compact --capture screenshots/rescate-v04.png
+cargo run --release -- --hidden --radio-preview --pad-preview --compact --capture screenshots/luma-3d-v04.png
+cargo run --release -- --hidden --smoke-rescue --capture target/rescate-completo-v04.png
+cargo run --release -- --hidden --smoke-tour --capture target/luna-regresion-v04.png
 ```
 
-`--smoke-tour` verifica viaje orbital, descenso, salida, una conversación completa, circuito a pie con saltos, abordaje y ascenso. Termina con error si no completa el recorrido o el diálogo. `--hidden` necesita igualmente un contexto OpenGL. `--portrait` es una pose de inspección; `--walking` entra directamente a la zona a pie. Se conservan `--lunar`, `--near-moon`, `--planet 1..8`, `--overview`, `--controller-report` y `--flight-check` para revisión. Las opciones de preview muestran las comunicaciones completas; `--compact` comprueba 1280 × 800. `--pad-preview` dibuja símbolos de mando sin simular un dispositivo físico; en una partida normal los avisos siguen el dispositivo utilizado.
+`--smoke-rescue` prueba gráficamente el rescate completo; `--smoke-tour` comprueba el recorrido lunar y su conversación. Ambos usan los controles de caminar y saltar, sin teletransportar al jugador para completar objetivos. Terminan con error si no completan la misión o la conversación. `--hidden` también necesita OpenGL. `--celebration-preview` es una pose de inspección de la cinemática; `--pad-preview` muestra símbolos sin simular un mando conectado.
 
-## Código
+## Código y créditos
 
-| Archivo | Responsabilidad |
-| --- | --- |
-| `src/main.rs` | Ventana, bucle, cámara y acciones según el modo. |
-| `src/astronaut.rs` | Movimiento, saltos, colisiones y cámara a pie. |
-| `src/frog.rs` | Modelo procedural y animaciones de Luma. |
-| `src/expedition.rs` | Descenso, salida, exploración, abordaje y ascenso. |
-| `src/controls.rs` | Teclado, mando y zonas muertas. |
-| `src/lunar.rs` | Base, plataformas, balizas e indicadores. |
-| `src/scene.rs` | Planetas, estrellas y recursos gráficos. |
-| `src/ship.rs` | Transformación compartida de nave y motores. |
-| `src/simulation.rs` | Órbitas, vuelo, piloto automático y colisiones orbitales. |
-| `src/ui.rs` | Tipografía, paneles y símbolos de botones. |
-| `src/hud.rs` | HUD contextual, retratos, ayuda y pausa. |
-| `src/comms.rs` | Radio, conversaciones, eventos y cola de mensajes. |
-| `assets/fonts/` | Nunito, variantes estáticas y licencia OFL. |
-| `assets/shaders/` | Superficies procedurales e iluminación. |
+- `main.rs`: bucle, modos, cámara, controles y pruebas gráficas.
+- `expedition.rs`: descenso, exploración, celebración, abordaje y ascenso.
+- `rescue.rs` / `mercury.rs`: misión, temperatura, Brasa y Estación Girasol.
+- `astronaut.rs` / `frog.rs`: movimiento, colisiones, modelos compartidos y animaciones.
+- `portraits.rs`: cámaras 3D de comunicaciones y recursos reutilizados.
+- `comms.rs` / `hud.rs` / `ui.rs`: diálogos, interfaz, fuentes y botones.
+- `lunar.rs` / `scene.rs` / `simulation.rs` / `ship.rs` / `controls.rs`: Luna, sistema solar, vuelo, nave y dispositivos.
 
-Tecnología: [raylib](https://www.raylib.com/) y [raylib-rs](https://github.com/raylib-rs/raylib-rs). No se descargan texturas durante el juego.
+Tecnología: [raylib](https://www.raylib.com/) y [raylib-rs](https://github.com/raylib-rs/raylib-rs).
 
-Tipografía: [Nunito, de The Nunito Project Authors](https://github.com/google/fonts/tree/main/ofl/nunito), bajo SIL Open Font License 1.1. Se incluyen la licencia, el archivo original y variantes estáticas de pesos 600/800 preparadas con FontTools. Las herramientas de preparación no son necesarias para compilar ni jugar.
+Tipografía: [Nunito](https://github.com/google/fonts/tree/main/ofl/nunito), bajo SIL Open Font License 1.1. Se incluyen la licencia, el archivo original y variantes de pesos 600/800 preparadas con FontTools. No se descargan recursos durante el juego.

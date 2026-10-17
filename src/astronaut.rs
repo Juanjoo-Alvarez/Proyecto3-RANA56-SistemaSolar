@@ -120,9 +120,40 @@ pub const TERMINAL: Platform = Platform {
         z: 1.4,
     },
 };
-fn solids() -> impl Iterator<Item = Platform> {
-    PLATFORMS.into_iter().chain([SHIP_BLOCK, TERMINAL])
+fn solids(mercury: bool) -> impl Iterator<Item = Platform> {
+    PLATFORMS
+        .into_iter()
+        .filter(move |_| !mercury)
+        .chain(
+            [SHIP_BLOCK, TERMINAL]
+                .into_iter()
+                .filter(move |b| !mercury || b.center.z == 28.0),
+        )
+        .chain(MERCURY_BLOCKS.into_iter().filter(move |_| mercury))
+        .chain(
+            crate::rescue::SHELTERS
+                .into_iter()
+                .map(|p| Platform {
+                    center: p + v(0.0, 6.5, 0.0),
+                    size: v(11.0, 0.3, 11.0),
+                })
+                .filter(move |_| mercury),
+        )
+        .chain(
+            crate::rescue::COLLECTORS
+                .into_iter()
+                .map(|p| Platform {
+                    center: p + v(0.0, 1.05, -2.8),
+                    size: v(1.4, 2.1, 1.4),
+                })
+                .filter(move |_| mercury),
+        )
 }
+pub const MERCURY_BLOCKS: [Platform; 3] = [
+    block(8.0, -37.0, 14.0, 6.5, 1.0),
+    block(1.0, -33.0, 1.0, 6.5, 9.0),
+    block(15.0, -33.0, 1.0, 6.5, 9.0),
+];
 
 #[derive(Clone, Copy, Default)]
 pub struct WalkInput {
@@ -135,6 +166,7 @@ pub struct WalkInput {
     pub run: bool,
 }
 pub struct Astronaut {
+    pub mercury: bool,
     pub position: Vector3,
     pub velocity: Vector3,
     pub yaw: f32,
@@ -153,6 +185,7 @@ pub struct Astronaut {
 impl Default for Astronaut {
     fn default() -> Self {
         Self {
+            mercury: false,
             position: SPAWN,
             velocity: v(0.0, 0.0, 0.0),
             yaw: PI,
@@ -264,7 +297,7 @@ impl Astronaut {
             } else {
                 self.position.z += self.velocity.z * dt;
             }
-            for b in solids() {
+            for b in solids(self.mercury) {
                 if self.position.y >= b.top() - 0.03
                     || self.position.y + HEIGHT <= b.center.y - b.size.y * 0.5
                 {
@@ -288,7 +321,7 @@ impl Astronaut {
         let was_grounded = self.grounded;
         self.grounded = false;
         let mut support = floor(self.position);
-        for b in solids() {
+        for b in solids(self.mercury) {
             if b.contains(self.position, RADIUS * 0.55) {
                 if self.velocity.y <= 0.0 && old.y >= b.top() - 0.04 && self.position.y <= b.top() {
                     support = support.max(b.top());
@@ -332,7 +365,7 @@ impl Astronaut {
         let mut safe = target;
         for i in 1..=48 {
             let p = target + (desired - target) * (i as f32 / 48.0);
-            if solids().any(|b| {
+            if solids(self.mercury).any(|b| {
                 b.contains(p, 0.2)
                     && p.y > b.center.y - b.size.y * 0.5 - 0.2
                     && p.y < b.top() + 0.25

@@ -7,6 +7,14 @@ use raylib::prelude::*;
 use std::f32::consts::TAU;
 
 pub fn camera(e: &Expedition) -> Camera3D {
+    if e.phase == Phase::Rescue {
+        return Camera3D::perspective(
+            v(13.5, 4.5, -24.0),
+            crate::rescue::REFUGE + v(0.0, 1.8, 1.0),
+            v(0.0, 1.0, 0.0),
+            43.0,
+        );
+    }
     if e.phase == Phase::Landing || e.phase == Phase::Launch {
         Camera3D::perspective(
             v(26.0, 18.0, 58.0),

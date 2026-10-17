@@ -12,6 +12,7 @@ pub struct Hud<'a> {
     pub controls: &'a Controls,
     pub world: &'a World,
     pub e: &'a Expedition,
+    pub portraits: &'a crate::portraits::Portraits,
     pub comms: &'a Comms,
     pub camera: Camera3D,
     pub overview: bool,
@@ -35,19 +36,21 @@ impl Hud<'_> {
         if e.phase == Phase::Orbit {
             self.orbit(d, w, h);
         } else {
-            self.lunar(d, w, h);
+            if e.zone == crate::expedition::Zone::Mercury {
+                self.mercury(d, w, h);
+            } else {
+                self.lunar(d, w, h);
+            }
         }
         if self.comms.toast_left > 0.0 {
             let slide = ((3.5 - self.comms.toast_left) * 7.0).min(1.0);
             let x = w * 0.5 - 170.0;
             let y = 128.0 - (1.0 - slide) * 12.0;
             ui.panel(d, Rectangle::new(x, y, 340.0, 53.0));
-            portrait(
+            self.portraits.draw(
                 d,
                 Rectangle::new(x + 7.0, y + 7.0, 40.0, 40.0),
                 Portrait::Luma,
-                false,
-                self.comms.time,
             );
             ui.text(d, &self.comms.toast, x + 60.0, y + 15.0, 21.0, MINT);
         }
@@ -60,7 +63,7 @@ impl Hud<'_> {
             self.pause(d, w, h);
         }
         // Una firma discreta; los detalles del dispositivo viven en su diagnostico.
-        ui.text(d, "RANA / 56 · 0.3.1", w - 156.0, h - 22.0, 13.0, MUTED);
+        ui.text(d, "RANA / 56 · 0.4.0", w - 156.0, h - 22.0, 13.0, MUTED);
     }
     fn heading(&self, d: &mut RaylibDrawHandle, title: &str, subtitle: &str) {
         let ui = self.ui;
@@ -68,6 +71,208 @@ impl Hud<'_> {
         leaf(d, Vector2::new(54.0, 65.0), 16.0, MINT);
         ui.text(d, title, 82.0, 40.0, 29.0, CREAM);
         ui.text(d, subtitle, 83.0, 77.0, 15.0, MUTED);
+    }
+    fn mercury(&self, d: &mut RaylibDrawHandle, w: f32, h: f32) {
+        use crate::rescue::{self, Status};
+        let ui = self.ui;
+        let e = self.e;
+        let r = &e.rescue;
+        self.heading(d, "Estación Girasol", "Mercurio · Rescate de Brasa");
+        let objective = match r.status {
+            Status::Waiting if !r.unlocked() => "Apaga los tres colectores",
+            Status::Waiting => "Abre el refugio de Brasa",
+            Status::Celebration => "¡Ninguna rana se queda atrás!",
+            Status::Escort => "Reúnete con Brasa en la nave",
+            Status::Aboard | Status::Complete => "Despega con tu tripulante",
+        };
+        ui.panel(d, Rectangle::new(26.0, 126.0, 322.0, 80.0));
+        ui.text(d, objective, 43.0, 141.0, 19.0, CREAM);
+        ui.text(
+            d,
+            &format!(
+                "Colectores apagados  {} / 3",
+                r.collectors.iter().filter(|b| **b).count()
+            ),
+            43.0,
+            173.0,
+            18.0,
+            MINT,
+        );
+        ui.panel(d, Rectangle::new(w - 278.0, 25.0, 252.0, 110.0));
+        let cool = rescue::shaded(e.astronaut.position) || r.unlocked();
+        let color = if r.heat > 70.0 {
+            Color::new(255, 120, 78, 255)
+        } else {
+            GOLD
+        };
+        ui.text(
+            d,
+            if r.unlocked() {
+                "Refrigeración restaurada"
+            } else if cool {
+                "En sombra · enfriando"
+            } else {
+                "Exposición solar"
+            },
+            w - 260.0,
+            41.0,
+            19.0,
+            if cool { MINT } else { color },
+        );
+        d.draw_rectangle_rounded(
+            Rectangle::new(w - 258.0, 76.0, 211.0, 9.0),
+            0.8,
+            8,
+            Color::new(56, 62, 70, 255),
+        );
+        if r.heat > 0.0 {
+            d.draw_rectangle_rounded(
+                Rectangle::new(w - 258.0, 76.0, 211.0 * r.heat / 100.0, 9.0),
+                0.8,
+                8,
+                color,
+            );
+        }
+        ui.text(
+            d,
+            &format!("Temperatura del traje  {:.0}%", r.heat),
+            w - 260.0,
+            99.0,
+            16.0,
+            MUTED,
+        );
+        ui.text(
+            d,
+            if self.gamepad_hints {
+                "Cruceta arriba · Ayuda"
+            } else {
+                "H · Ayuda    Esc · Pausa"
+            },
+            w - 262.0,
+            146.0,
+            15.0,
+            MUTED,
+        );
+        if e.phase == Phase::OnFoot {
+            let a = &e.astronaut;
+            for (i, p) in rescue::COLLECTORS.iter().enumerate() {
+                if let Some(p) =
+                    crate::scene::project(*p + v(0.0, 4.1, 0.0), self.camera, w as i32, h as i32)
+                    && p.x > 35.0
+                    && p.x < w - 40.0
+                    && p.y > 215.0
+                    && p.y < h - 255.0
+                {
+                    ui.text(
+                        d,
+                        &format!(
+                            "Colector {} {}",
+                            i + 1,
+                            if r.collectors[i] { "OK" } else { "" }
+                        ),
+                        p.x - 45.0,
+                        p.y,
+                        17.0,
+                        if r.collectors[i] { MINT } else { GOLD },
+                    );
+                }
+            }
+            if let Some(p) = crate::scene::project(
+                rescue::REFUGE + v(0.0, 7.5, 0.0),
+                self.camera,
+                w as i32,
+                h as i32,
+            ) && p.y > 215.0
+                && p.y < h - 255.0
+                && p.x > 45.0
+                && p.x < w - 160.0
+            {
+                ui.text(d, "Refugio de Brasa", p.x - 60.0, p.y, 20.0, GOLD);
+            }
+            let prompt = if let Some(i) = r.collector_near(a) {
+                Some(if r.collectors[i] {
+                    "Colector apagado"
+                } else {
+                    "Apagar colector"
+                })
+            } else if r.near_refuge(a) && r.status == Status::Waiting {
+                Some(if r.unlocked() {
+                    "Abrir refugio · Rescatar a Brasa"
+                } else {
+                    "Refugio bloqueado · faltan colectores"
+                })
+            } else if a.near_ship() {
+                Some(if r.status == Status::Escort && !r.brasa.near_ship() {
+                    "Esperar a Brasa en el punto de abordaje"
+                } else {
+                    "Abordar RANA-56"
+                })
+            } else {
+                None
+            };
+            if !self.comms.blocking()
+                && let Some(label) = prompt
+            {
+                ui.prompt(
+                    d,
+                    label,
+                    Button::Triangle,
+                    self.gamepad_hints,
+                    "E",
+                    Vector2::new(
+                        w * 0.5,
+                        if self.comms.active.is_some() {
+                            h - 302.0
+                        } else {
+                            h - 94.0
+                        },
+                    ),
+                );
+            }
+            let target = if r.status == Status::Waiting && r.unlocked() {
+                rescue::REFUGE
+            } else {
+                crate::astronaut::SPAWN
+            };
+            ui.panel(d, Rectangle::new(w - 235.0, h - 114.0, 209.0, 81.0));
+            ui.text(
+                d,
+                if target == rescue::REFUGE {
+                    "Refugio de Brasa"
+                } else {
+                    "RANA-56"
+                },
+                w - 218.0,
+                h - 102.0,
+                20.0,
+                MINT,
+            );
+            ui.text(
+                d,
+                &format!("{:.0} m", length(target - a.position)),
+                w - 218.0,
+                h - 69.0,
+                18.0,
+                CREAM,
+            );
+        } else if e.phase == Phase::Surface {
+            ui.prompt(
+                d,
+                "Despegar",
+                Button::Cross,
+                self.gamepad_hints,
+                "E",
+                Vector2::new(w * 0.5 - 110.0, h - 100.0),
+            );
+            ui.prompt(
+                d,
+                "Salir",
+                Button::Square,
+                self.gamepad_hints,
+                "Q",
+                Vector2::new(w * 0.5 + 110.0, h - 100.0),
+            );
+        }
     }
     fn lunar(&self, d: &mut RaylibDrawHandle, w: f32, h: f32) {
         let ui = self.ui;
@@ -302,6 +507,18 @@ impl Hud<'_> {
             15.0,
             MUTED,
         );
+        ui.text(
+            d,
+            if self.e.rescue.thermal_shield() {
+                "Brasa 1/8 · Escudo térmico +15% turbo"
+            } else {
+                "Primer rescate · Brasa en Mercurio"
+            },
+            28.0,
+            309.0,
+            18.0,
+            GOLD,
+        );
         if self.overview {
             ui.panel(d, Rectangle::new(w - 288.0, 118.0, 262.0, 448.0));
             ui.text(d, "Elegir destino", w - 267.0, 135.0, 25.0, CREAM);
@@ -371,7 +588,11 @@ impl Hud<'_> {
         if self.e.can_land(world) {
             ui.prompt(
                 d,
-                "Descender a la Luna",
+                if self.e.landing_zone(world) == Some(crate::expedition::Zone::Mercury) {
+                    "Descender a Mercurio"
+                } else {
+                    "Descender a la Luna"
+                },
                 Button::Cross,
                 pad,
                 "E",
@@ -445,12 +666,10 @@ impl Hud<'_> {
         let x = 28.0;
         let y = h - 237.0;
         ui.panel(d, Rectangle::new(x, y, width, 205.0));
-        portrait(
+        self.portraits.draw(
             d,
             Rectangle::new(x + 14.0, y + 31.0, 119.0, 137.0),
             a.message.speaker.portrait,
-            !a.complete(),
-            self.comms.time,
         );
         let tx = x + 153.0;
         let channel = if a.message.kind == Kind::Radio {
@@ -680,14 +899,14 @@ impl Hud<'_> {
             }
         } else {
             let lines = [
-                "1. Viaja a la Luna: Triángulo / F. Desciende: X / E.",
-                "2. Camina y salta para recuperar las tres señales.",
+                "1. Viaja a Mercurio: Triángulo / F. Desciende: X / E.",
+                "2. Apaga los colectores (Triángulo/E); rescata a Brasa.",
                 "3. Triángulo / E para abordar; después X / E para despegar.",
                 "",
                 "A pie: stick izquierdo / WASD. R2 / Shift para correr.",
                 "Cámara: stick derecho / flechas. Salto: X / Espacio.",
                 "Mantén el salto para cargarlo y alcanzar más altura.",
-                "Terminal de radio: Triángulo / E cuando estés cerca.",
+                "Refugios de techo azul: enfrían el traje en Mercurio.",
                 "Diálogo: X / Enter. Radio: cruceta abajo / Enter.",
                 "",
                 "Vuelo: R2/L2 impulso, sticks orientar, R3 turbo.",
@@ -727,109 +946,4 @@ fn leaf<D: RaylibDraw>(d: &mut D, c: Vector2, r: f32, color: Color) {
         c + Vector2::new(r * 0.2, -r * 1.2),
         INK,
     );
-}
-fn portrait<D: RaylibDraw>(d: &mut D, r: Rectangle, kind: Portrait, talking: bool, time: f32) {
-    d.draw_rectangle_rounded(r, 0.13, 8, Color::new(35, 67, 74, 255));
-    let sx = r.width / 120.0;
-    let sy = r.height / 137.0;
-    let p = |x: f32, y: f32| Vector2::new(r.x + x * sx, r.y + y * sy);
-    let ellipse = |d: &mut D, x: f32, y: f32, rx: f32, ry: f32, c: Color| {
-        d.draw_ellipse(
-            (r.x + x * sx) as i32,
-            (r.y + y * sy) as i32,
-            rx * sx,
-            ry * sy,
-            c,
-        )
-    };
-    match kind {
-        Portrait::Luma => {
-            let blink = time % 4.8 > 4.64;
-            d.draw_rectangle_rounded(
-                Rectangle::new(r.x + 13.0 * sx, r.y + 112.0 * sy, 94.0 * sx, 25.0 * sy),
-                0.5,
-                8,
-                CREAM,
-            );
-            ellipse(d, 60.0, 112.0, 33.0, 13.0, Color::new(19, 48, 56, 255));
-            ellipse(d, 60.0, 71.0, 47.0, 49.0, Color::new(111, 189, 62, 255));
-            ellipse(d, 60.0, 89.0, 37.0, 24.0, Color::new(163, 212, 89, 255));
-            for x in [31.0, 88.0] {
-                ellipse(d, x, 40.0, 24.0, 30.0, Color::new(100, 180, 58, 255));
-                ellipse(
-                    d,
-                    x,
-                    43.0,
-                    17.0,
-                    if blink { 2.0 } else { 23.0 },
-                    Color::new(229, 93, 63, 255),
-                );
-                if !blink {
-                    ellipse(d, x + 1.0, 44.0, 4.2, 18.0, Color::new(25, 41, 40, 255));
-                    ellipse(d, x - 4.0, 36.0, 3.0, 4.0, CREAM);
-                }
-            }
-            if talking {
-                ellipse(
-                    d,
-                    60.0,
-                    94.0,
-                    13.0,
-                    3.0 + (time * 15.0).sin().abs() * 5.0,
-                    Color::new(34, 80, 42, 255),
-                );
-            } else {
-                d.draw_line_ex(
-                    p(39.0, 92.0),
-                    p(60.0, 97.0),
-                    1.8 * sx,
-                    Color::new(43, 94, 44, 255),
-                );
-                d.draw_line_ex(
-                    p(60.0, 97.0),
-                    p(81.0, 92.0),
-                    1.8 * sx,
-                    Color::new(43, 94, 44, 255),
-                );
-            }
-            for x in [48.0, 72.0] {
-                ellipse(d, x, 76.0, 2.0, 1.6, Color::new(52, 104, 47, 255));
-            }
-            d.draw_ellipse_lines(
-                p(60.0, 65.0).x as i32,
-                p(60.0, 65.0).y as i32,
-                55.0 * sx,
-                63.0 * sy,
-                Color::new(161, 225, 232, 160),
-            );
-            d.draw_line_ex(
-                p(12.0, 53.0),
-                p(18.0, 26.0),
-                2.0 * sx,
-                Color::new(208, 240, 232, 145),
-            );
-        }
-        Portrait::Terminal => {
-            d.draw_rectangle_rounded(
-                Rectangle::new(r.x + 15.0 * sx, r.y + 27.0 * sy, 90.0 * sx, 86.0 * sy),
-                0.2,
-                8,
-                Color::new(22, 45, 58, 255),
-            );
-            for x in [39.0, 81.0] {
-                ellipse(d, x, 59.0, 10.0, 12.0, MINT);
-            }
-            for i in 0..8 {
-                let x = 29.0 + i as f32 * 9.0;
-                let h = if talking {
-                    4.0 + (time * 7.0 + i as f32).sin().abs() * 12.0
-                } else {
-                    4.0
-                };
-                d.draw_line_ex(p(x, 91.0 - h), p(x, 91.0 + h), 3.0 * sx, MINT);
-            }
-            ellipse(d, 60.0, 18.0, 6.0, 6.0, GOLD);
-            d.draw_line_ex(p(60.0, 18.0), p(60.0, 29.0), 3.0 * sx, CREAM);
-        }
-    }
 }
