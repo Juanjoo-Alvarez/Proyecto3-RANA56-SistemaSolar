@@ -16,6 +16,18 @@ pub fn trigger(value: f32) -> f32 {
     (((value + 1.0) * 0.5 - 0.05) / 0.95).clamp(0.0, 1.0)
 }
 
+pub fn pad_heading(left: (f32, f32), right: (f32, f32)) -> Input {
+    let (lx, ly) = stick(left.0, left.1);
+    let (rx, ry) = stick(right.0, right.1);
+    Input {
+        steer_yaw: -lx * lx.abs(),
+        steer_pitch: -ly * ly.abs(),
+        yaw: -rx,
+        pitch: -ry,
+        ..Default::default()
+    }
+}
+
 #[derive(Default)]
 pub struct Controls {
     pub pad: Option<i32>,
@@ -68,8 +80,10 @@ impl Controls {
             self.pad
                 .map_or(0.0, |id| rl.get_gamepad_axis_movement(id, a))
         };
-        let (lx, ly) = stick(analog(GAMEPAD_AXIS_LEFT_X), analog(GAMEPAD_AXIS_LEFT_Y));
-        let (rx, ry) = stick(analog(GAMEPAD_AXIS_RIGHT_X), analog(GAMEPAD_AXIS_RIGHT_Y));
+        let heading = pad_heading(
+            (analog(GAMEPAD_AXIS_LEFT_X), analog(GAMEPAD_AXIS_LEFT_Y)),
+            (analog(GAMEPAD_AXIS_RIGHT_X), analog(GAMEPAD_AXIS_RIGHT_Y)),
+        );
         let thrust = self.pad.map_or(0.0, |_| {
             trigger(analog(GAMEPAD_AXIS_RIGHT_TRIGGER)) - trigger(analog(GAMEPAD_AXIS_LEFT_TRIGGER))
         });
@@ -80,10 +94,12 @@ impl Controls {
         Actions {
             flight: Input {
                 thrust: (axis(rl, KEY_W, KEY_S) + thrust).clamp(-1.0, 1.0),
-                strafe: (axis(rl, KEY_D, KEY_A) + lx).clamp(-1.0, 1.0),
-                vertical: (axis(rl, KEY_SPACE, KEY_LEFT_CONTROL) - ly).clamp(-1.0, 1.0),
-                yaw: (axis(rl, KEY_LEFT, KEY_RIGHT) - rx).clamp(-1.0, 1.0),
-                pitch: (axis(rl, KEY_UP, KEY_DOWN) - ry).clamp(-1.0, 1.0),
+                strafe: axis(rl, KEY_D, KEY_A),
+                vertical: axis(rl, KEY_SPACE, KEY_LEFT_CONTROL),
+                yaw: (axis(rl, KEY_LEFT, KEY_RIGHT) + heading.yaw).clamp(-1.0, 1.0),
+                pitch: (axis(rl, KEY_UP, KEY_DOWN) + heading.pitch).clamp(-1.0, 1.0),
+                steer_yaw: heading.steer_yaw,
+                steer_pitch: heading.steer_pitch,
                 boost: rl.is_key_down(KEY_LEFT_SHIFT) || down(GAMEPAD_BUTTON_RIGHT_THUMB),
                 brake: rl.is_key_down(KEY_X) || down(GAMEPAD_BUTTON_RIGHT_FACE_RIGHT),
             },
@@ -122,6 +138,58 @@ impl Controls {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        expedition::{Expedition, Phase},
+        simulation::{World, length, v},
+    };
+    #[test]
+    fn left_stick_aims_without_translation_then_trigger_follows_heading() {
+        let aim = pad_heading((0.0, -1.0), (0.0, 0.0));
+        assert_eq!((aim.thrust, aim.strafe, aim.vertical), (0.0, 0.0, 0.0));
+        let mut world = World {
+            position: v(100.0, 50.0, 0.0),
+            ..Default::default()
+        };
+        let start = world.position;
+        for _ in 0..120 {
+            world.update(aim, 1.0 / 60.0);
+        }
+        assert_eq!(world.position, start);
+        assert_eq!(length(world.velocity), 0.0);
+        assert!(world.pitch > 0.9);
+        let accelerated = Input { thrust: 1.0, ..aim };
+        for _ in 0..60 {
+            world.update(accelerated, 1.0 / 60.0);
+        }
+        assert!(world.position.y > start.y + 5.0);
+        let mut e = Expedition {
+            phase: Phase::Surface,
+            ..Default::default()
+        };
+        let lunar_start = e.local.position;
+        for _ in 0..120 {
+            e.update(&mut world, aim, 1.0 / 60.0);
+        }
+        assert_eq!(e.local.position, lunar_start);
+        assert!(e.local.pitch > 0.5);
+        for _ in 0..60 {
+            e.update(&mut world, accelerated, 1.0 / 60.0);
+        }
+        assert!(e.local.position.y > lunar_start.y + 2.0);
+    }
+    #[test]
+    fn left_turn_is_smoothed_and_right_stick_keeps_direct_response() {
+        let mut world = World::default();
+        let left = pad_heading((0.0, -1.0), (0.0, 0.0));
+        world.steer(left, 1.0 / 60.0, 1.3, 1.15);
+        assert!(world.pitch > 0.0 && world.pitch < 0.005);
+        let mut right_world = World::default();
+        let right = pad_heading((0.0, 0.0), (1.0, -1.0));
+        let expected = stick(1.0, -1.0);
+        assert_eq!((right.yaw, right.pitch), (-expected.0, -expected.1));
+        right_world.steer(right, 1.0 / 60.0, 1.3, 1.15);
+        assert!((right_world.pitch - right.pitch / 60.0).abs() < 0.00001);
+    }
     #[test]
     fn drift_and_trigger_rest_do_not_accelerate_ship() {
         assert_eq!(stick(0.10, -0.12), (0.0, 0.0));

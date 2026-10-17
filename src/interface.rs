@@ -17,7 +17,7 @@ pub fn overlay(
         if pad {
             d.draw_rectangle(435, h - 100, w - 745, 56, Color::new(9, 18, 29, 255));
             d.draw_text(
-                "R2/L2 impulso   Stick izq lateral/altura",
+                "R2/L2 impulso   Stick izq orientar suave",
                 438,
                 h - 94,
                 14,
@@ -48,7 +48,7 @@ pub fn overlay(
             "PRUEBA COMPLETADA / Base Nenufar conectada. Puedes volver a descender.".to_string()
         } else if e.can_land(world) {
             if pad {
-                "CRUZ: descender a la Base Nenufar".into()
+                "X: descender a la Base Nenufar".into()
             } else {
                 "E: descender a la Base Nenufar".into()
             }
@@ -122,7 +122,7 @@ pub fn overlay(
                     d.draw_rectangle(x + 310, line, ((value + 1.0) * 175.0) as i32, 18, ACCENT);
                 }
                 let buttons = [
-                    ("CRUZ", GAMEPAD_BUTTON_RIGHT_FACE_DOWN),
+                    ("X", GAMEPAD_BUTTON_RIGHT_FACE_DOWN),
                     ("CIRCULO", GAMEPAD_BUTTON_RIGHT_FACE_RIGHT),
                     ("CUADRADO", GAMEPAD_BUTTON_RIGHT_FACE_LEFT),
                     ("TRIANGULO", GAMEPAD_BUTTON_RIGHT_FACE_UP),
@@ -186,12 +186,12 @@ pub fn overlay(
         } else {
             let lines = [
                 "1. Selecciona LUNA (9 o L1/R1) y activa F / Triangulo.",
-                "2. Al llegar, pulsa E / Cruz para descender.",
+                "2. Al llegar, pulsa E / X para descender.",
                 "3. Acercate a las tres balizas de la base lunar.",
-                "4. Regresa a H, frena y pulsa E / Cruz para despegar.",
+                "4. Regresa a H, frena y pulsa E / X para despegar.",
                 "",
                 "R2 / L2          Avanzar / retroceder       W / S",
-                "Stick izquierdo  Lateral / altura          A,D / Espacio,Ctrl",
+                "Stick izquierdo  Orientacion suave; R2/L2 para avanzar",
                 "Stick derecho    Orientar la nave          Flechas",
                 "R3 / Circulo     Turbo / frenar            Shift / X",
                 "Cuadrado         Mapa del sistema          Tab",
@@ -223,7 +223,7 @@ pub fn overlay(
             d.draw_text(label, x + 38, yy, 21, Color::WHITE);
         }
         d.draw_text(
-            "Arriba/Abajo + Cruz/Enter | Circulo/Esc: volver",
+            "Arriba/Abajo + X/Enter | Circulo/Esc: volver",
             x + 24,
             y + 330,
             16,

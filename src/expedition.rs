@@ -130,11 +130,10 @@ impl Expedition {
             Phase::Surface => {
                 let ship = &mut self.local;
                 ship.time += dt;
-                ship.yaw += input.yaw * dt * 1.7;
-                ship.pitch = (ship.pitch + input.pitch * dt).clamp(-0.6, 0.6);
-                let flat = v(ship.yaw.sin(), 0.0, ship.yaw.cos());
-                let mut direction =
-                    flat * input.thrust + ship.right() * input.strafe + v(0.0, input.vertical, 0.0);
+                ship.steer(input, dt, 1.7, 0.6);
+                let mut direction = ship.forward() * input.thrust
+                    + ship.right() * input.strafe
+                    + v(0.0, input.vertical, 0.0);
                 if length(direction) > 1.0 {
                     direction = unit(direction);
                 }

@@ -1,19 +1,27 @@
 # RANA / 56 — Operación Croac
 
-**Proyecto 3 · Versión 0.2.0 · Viaje y descenso lunar**
+**Proyecto 3 · Versión 0.2.1 · Ajustes de vuelo de la versión 0.2**
 Juan Jose Rivas Alvarez · Carnet 24856
 
 Exploración espacial en **Rust y raylib 6.0.0**, con la nave RANA-56 creada en Blender para el Laboratorio 3. Esta versión conecta el sistema solar con un escenario lunar: viaja, desciende con una animación, activa tres balizas y vuelve al espacio. Recomendada para mando, con controles completos de teclado como alternativa.
 
 ![Base Nenúfar en la Luna](screenshots/luna-v02.png)
 
+### Ajustes 0.2.1
+
+- Las estelas están ancladas a las caras de los motores del OBJ y comparten la rotación y escala de la nave, tanto en órbita como en la Luna.
+- El stick izquierdo orienta suavemente el morro. Si la nave está detenida, mover el stick no la desplaza; R2/L2 proporcionan el avance/retroceso en la dirección apuntada. El stick derecho conserva su sensibilidad y respuesta.
+- Se muestra **X** para el botón inferior del mando PlayStation; su asignación sigue siendo la misma.
+
+La nave lunar también refleja la inclinación al dibujarse y avanza según su orientación. El teclado conserva A/D y Espacio/Ctrl para los desplazamientos laterales y verticales.
+
 ## Probar la versión 0.2
 
 1. Conecta el DualShock 4 por USB y abre `rana-solar.exe` del paquete Windows, conservando `assets` junto al ejecutable.
 2. La **Luna** está seleccionada al empezar. Pulsa **Triángulo / F** para viajar automáticamente.
-3. Al llegar, pulsa **Cruz / E** cuando aparezca la indicación de descenso. Si llegaste manualmente, frena por debajo de 8 u/s.
+3. Al llegar, pulsa **X / E** cuando aparezca la indicación de descenso. Si llegaste manualmente, frena por debajo de 8 u/s.
 4. En la **Base Nenúfar**, pilota la nave hacia las tres balizas doradas. Se activan al acercarte y cambian a verde.
-5. Vuelve a la plataforma **H**, reduce velocidad y pulsa **Cruz / E** para despegar. La brújula de la esquina apunta a la plataforma.
+5. Vuelve a la plataforma **H**, reduce velocidad y pulsa **X / E** para despegar. La brújula de la esquina apunta a la plataforma.
 6. Al regresar al espacio con las tres balizas activadas aparece la confirmación de prueba completada.
 
 Puedes volver al espacio antes de completar las balizas y continuar la visita después. El avance permanece durante la sesión. El descenso está habilitado en la Luna; los ocho planetas siguen disponibles para vuelo orbital. La astronauta caminando y los rescates corresponden a las próximas versiones.
@@ -27,19 +35,19 @@ Se utilizan los mapeos estándar de GLFW incluidos en raylib. La versión se ver
 | Mando PlayStation | Acción |
 | --- | --- |
 | R2 / L2 | Avanzar / retroceder con intensidad analógica |
-| Stick izquierdo, horizontal | Desplazamiento lateral |
-| Stick izquierdo, vertical | Subir / bajar |
+| Stick izquierdo, horizontal | Giro suave hacia izquierda / derecha |
+| Stick izquierdo, vertical | Inclinar el morro hacia arriba / abajo |
 | Stick derecho | Girar e inclinar la nave |
 | R3, mantener | Turbo |
 | Círculo, mantener | Frenar |
 | L1 / R1 | Elegir destino anterior / siguiente |
 | Triángulo | Iniciar o cancelar la ruta automática |
-| Cruz | Descender / despegar cuando aparece el aviso |
+| X | Descender / despegar cuando aparece el aviso |
 | Cuadrado | Mapa del sistema |
 | Options | Pausa y menú |
 | Cruceta arriba | Ayuda |
 | Share / Create | Diagnóstico de mando |
-| Cruceta arriba/abajo + Cruz | Seleccionar y confirmar opciones del menú |
+| Cruceta arriba/abajo + X | Seleccionar y confirmar opciones del menú |
 | Círculo | Cerrar ayuda o volver desde el menú |
 
 La conexión se detecta sin reiniciar. Desconectar el mando o quitar el foco de la ventana pausa el juego. Los sticks usan una zona muerta radial del 18 %. **Share / F3** muestra ejes y botones en vivo mientras detiene el juego. Se recomienda USB para la primera prueba; Bluetooth depende del reconocimiento del dispositivo por Windows. No se han añadido vibración ni gatillos adaptativos.
@@ -123,6 +131,7 @@ cargo run --release -- --hidden --lunar --frames 8 --capture screenshots/luna-v0
 cargo run --release -- --hidden --near-moon --frames 8 --capture screenshots/descenso-v02.png
 cargo run --release -- --hidden --controller-report --frames 8 --capture target/mando.png
 cargo run --release -- --hidden --smoke-tour --capture target/recorrido.png
+cargo run --release -- --hidden --flight-check --frames 8 --capture target/motores.png
 ```
 
 `--hidden` crea una ventana oculta, pero sigue necesitando un contexto gráfico OpenGL. `--planet 1..8`, `--lunar` y `--near-moon` son posiciones de inspección. `--smoke-tour` ejecuta automáticamente la ruta lunar, ambas animaciones y el recorrido de balizas; termina con error si no completa la ida y vuelta. Estas opciones son herramientas de verificación, independientes de los controles normales.
@@ -135,6 +144,7 @@ cargo run --release -- --hidden --smoke-tour --capture target/recorrido.png
 | `src/simulation.rs` | Órbitas, vuelo, colisiones, rutas y visitas. |
 | `src/scene.rs` | Modelos, estrellas, anillos, radar e interfaz. |
 | `src/controls.rs` | Teclado, mando, zonas muertas y acciones compartidas. |
+| `src/ship.rs` | Transformación compartida de la nave y los anclajes de los motores. |
 | `src/expedition.rs` | Estados de descenso, superficie y ascenso; balizas. |
 | `src/lunar.rs` | Escenario, cámara y señalización de la Base Nenúfar. |
 | `src/interface.rs` | Indicaciones, menú de pausa, ayuda y diagnóstico. |
@@ -150,6 +160,6 @@ cargo clippy --release -- -D warnings
 cargo fmt --check
 ```
 
-Las 11 pruebas cubren las órbitas, colisiones, llegada del piloto automático a los planetas y la Luna, condiciones de descenso, ida y vuelta, pausa, límites lunares, zonas muertas, cancelación manual, consistencia del movimiento y proyección. Además se ejecuta el recorrido gráfico completo con los shaders reales.
+Las 14 pruebas cubren las órbitas, colisiones, llegada del piloto automático a los planetas y la Luna, condiciones de descenso, ida y vuelta, pausa, límites lunares, zonas muertas, orientación sin desplazamiento, aceleración en la dirección apuntada, respuesta de ambos sticks, anclaje y dirección de los motores al rotar, cancelación manual, consistencia del movimiento y proyección. Además se ejecuta el recorrido gráfico completo con los shaders reales. `--flight-check` congela una pose inclinada para inspeccionar las estelas; puede combinarse con `--lunar`.
 
 Tecnología: [raylib](https://www.raylib.com/) y [raylib-rs](https://github.com/raylib-rs/raylib-rs). Todo el escenario se genera en código; no se descargan texturas durante el juego.

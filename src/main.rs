@@ -3,6 +3,7 @@ mod expedition;
 mod interface;
 mod lunar;
 mod scene;
+mod ship;
 mod simulation;
 
 use raylib::prelude::*;
@@ -19,6 +20,7 @@ struct Options {
     near_moon: bool,
     controller_report: bool,
     smoke_tour: bool,
+    flight_check: bool,
 }
 fn options() -> Result<Options, String> {
     let mut opts = Options {
@@ -31,6 +33,7 @@ fn options() -> Result<Options, String> {
         near_moon: false,
         controller_report: false,
         smoke_tour: false,
+        flight_check: false,
     };
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -53,6 +56,7 @@ fn options() -> Result<Options, String> {
             "--near-moon" => opts.near_moon = true,
             "--controller-report" => opts.controller_report = true,
             "--smoke-tour" => opts.smoke_tour = true,
+            "--flight-check" => opts.flight_check = true,
             "--planet" => {
                 let n = args
                     .next()
@@ -66,7 +70,7 @@ fn options() -> Result<Options, String> {
             }
             "--help" => {
                 println!(
-                    "RANA / 56 - Operacion Croac v0.2\ncargo run --release\nOpciones: --frames N --capture archivo.png --overview --planet 1..8 --hidden --lunar --near-moon --controller-report --smoke-tour"
+                    "RANA / 56 - Operacion Croac v0.2.1\ncargo run --release\nOpciones: --frames N --capture archivo.png --overview --planet 1..8 --hidden --lunar --near-moon --controller-report --smoke-tour --flight-check"
                 );
                 std::process::exit(0);
             }
@@ -100,7 +104,7 @@ fn run() -> Result<(), String> {
     let mut builder = raylib::init();
     builder
         .size(1440, 900)
-        .title("RANA-56 | Operacion Croac v0.2 - Proyecto 3")
+        .title("RANA-56 | Operacion Croac v0.2.1 - Proyecto 3")
         .resizable()
         .msaa_4x()
         .log_level(TraceLogLevel::LOG_WARNING);
@@ -123,6 +127,16 @@ fn run() -> Result<(), String> {
     }
     if opts.smoke_tour {
         world.travel(8);
+    }
+    if opts.flight_check {
+        world.position = v(100.0, 50.0, 0.0);
+        world.yaw = 2.4;
+        world.pitch = 0.9;
+        world.thrust = 0.8;
+        expedition.local.position = v(0.0, 12.0, 28.0);
+        expedition.local.yaw = 2.4;
+        expedition.local.pitch = 0.55;
+        expedition.local.thrust = 0.8;
     }
     if let Some(index) = opts.destination {
         world.selected = index;
@@ -266,7 +280,12 @@ fn run() -> Result<(), String> {
             }
         }
         let previous_phase = expedition.phase;
-        if !help && !diagnostic && !world.paused && (!consumed || opts.smoke_tour) {
+        if !opts.flight_check
+            && !help
+            && !diagnostic
+            && !world.paused
+            && (!consumed || opts.smoke_tour)
+        {
             expedition.update(&mut world, input, dt);
         }
         if previous_phase != expedition.phase {

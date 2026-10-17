@@ -188,18 +188,7 @@ pub fn draw(
             }
         }
         assets.kind(11);
-        s.draw_model_ex(
-            &assets.ship,
-            e.local.position,
-            v(0.0, 1.0, 0.0),
-            e.local.yaw.to_degrees(),
-            v(0.55, 0.55, 0.55),
-            Color::WHITE,
-        );
-        for side in [-1.0, 1.0] {
-            let pos = e.local.position - e.local.forward() * 1.3 + e.local.right() * side * 1.6;
-            s.draw_sphere_ex(pos, 0.16 + e.local.thrust * 0.12, 6, 8, ACCENT);
-        }
+        crate::ship::draw(&mut s, &assets.ship, &e.local, 0.55);
     }
     let collected = e.beacons.iter().filter(|&&b| b).count();
     for (i, b) in BEACONS.iter().enumerate() {
@@ -221,7 +210,7 @@ pub fn draw(
     d.draw_rectangle(24, 24, 430, 83, Color::new(7, 17, 32, 235));
     d.draw_rectangle(24, 24, 4, 83, ACCENT);
     d.draw_text("BASE NENUFAR", 44, 38, 30, Color::WHITE);
-    d.draw_text("LUNA / PATIO DE VUELO / v0.2", 44, 79, 15, ACCENT);
+    d.draw_text("LUNA / PATIO DE VUELO / v0.2.1", 44, 79, 15, ACCENT);
     d.draw_rectangle(w - 340, 24, 316, 96, Color::new(7, 17, 32, 235));
     d.draw_text(
         &format!("TELEMETRIA   {collected} / 3"),
@@ -255,7 +244,7 @@ pub fn draw(
     );
     d.draw_text(
         if pad {
-            "R2/L2 avanzar/retroceder   Stick izq: lateral/altura   Stick der: orientar"
+            "R2/L2 avanzar/retroceder   Stick izq: orientar suave   Stick der: orientar"
         } else {
             "W/S avanzar/retroceder   A/D lateral   Espacio/Ctrl altura   Flechas orientar"
         },
@@ -269,7 +258,7 @@ pub fn draw(
         Phase::Launch => "ASCENSO EN CURSO / Regresando al sistema solar",
         _ if e.at_pad() => {
             if pad {
-                "CRUZ: despegar   |   Circulo: frenar   |   Options: pausa"
+                "X: despegar   |   Circulo: frenar   |   Options: pausa"
             } else {
                 "E: despegar   |   X: frenar   |   Esc: pausa"
             }

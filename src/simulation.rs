@@ -127,6 +127,8 @@ pub struct Input {
     pub vertical: f32,
     pub yaw: f32,
     pub pitch: f32,
+    pub steer_yaw: f32,
+    pub steer_pitch: f32,
     pub boost: bool,
     pub brake: bool,
 }
@@ -137,6 +139,8 @@ impl Input {
             + self.vertical.abs()
             + self.yaw.abs()
             + self.pitch.abs()
+            + self.steer_yaw.abs()
+            + self.steer_pitch.abs()
             > 0.001
             || self.brake
     }
@@ -160,6 +164,7 @@ pub struct World {
     pub velocity: Vector3,
     pub yaw: f32,
     pub pitch: f32,
+    pub steering: Vector2,
     pub selected: usize,
     pub autopilot: Option<Autopilot>,
     pub visited: [bool; 8],
@@ -176,6 +181,7 @@ impl Default for World {
             velocity: v(0.0, 0.0, 0.0),
             yaw: PI,
             pitch: 0.0,
+            steering: Vector2::zero(),
             selected: 8,
             autopilot: None,
             visited: [false; 8],
@@ -197,8 +203,20 @@ impl World {
     pub fn right(&self) -> Vector3 {
         v(-self.yaw.cos(), 0.0, self.yaw.sin())
     }
+    pub fn steer(&mut self, input: Input, dt: f32, yaw_speed: f32, pitch_limit: f32) {
+        // Solo el stick izquierdo tiene entrada/salida amortiguada. El derecho
+        // conserva su sensibilidad y respuesta directa de la version anterior.
+        let response = 1.0 - (-8.0 * dt).exp();
+        self.steering.x += (input.steer_yaw - self.steering.x) * response;
+        self.steering.y += (input.steer_pitch - self.steering.y) * response;
+        self.yaw = (self.yaw + (input.yaw + self.steering.x).clamp(-1.0, 1.0) * dt * yaw_speed)
+            .rem_euclid(TAU);
+        self.pitch = (self.pitch + (input.pitch + self.steering.y).clamp(-1.0, 1.0) * dt)
+            .clamp(-pitch_limit, pitch_limit);
+    }
     pub fn travel(&mut self, index: usize) {
         self.selected = index.min(8);
+        self.steering = Vector2::zero();
         self.autopilot = Some(Autopilot {
             target: self.selected,
             stage: Stage::Ascend,
@@ -229,8 +247,7 @@ impl World {
         if input.manual() {
             self.autopilot = None;
         }
-        self.yaw = (self.yaw + input.yaw * dt * 1.3).rem_euclid(TAU);
-        self.pitch = (self.pitch + input.pitch * dt).clamp(-1.15, 1.15);
+        self.steer(input, dt, 1.3, 1.15);
         let mut desired = self.forward() * input.thrust
             + self.right() * input.strafe
             + v(0.0, input.vertical, 0.0);

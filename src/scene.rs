@@ -233,34 +233,7 @@ pub fn draw_scene(
             Color::WHITE,
         );
         assets.kind(9);
-        let forward = world.forward();
-        let mut axis = cross(v(0.0, 0.0, 1.0), forward);
-        if length(axis) < 0.001 {
-            axis = v(0.0, 1.0, 0.0);
-        }
-        let angle = forward.z.clamp(-1.0, 1.0).acos().to_degrees();
-        space.draw_model_ex(
-            &assets.ship,
-            world.position,
-            unit(axis),
-            angle,
-            v(0.38, 0.38, 0.38),
-            Color::WHITE,
-        );
-        for side in [-1.0, 1.0] {
-            let exhaust = world.position - forward * 0.9 + world.right() * side * 1.1;
-            for i in (0..6).rev() {
-                let step = i as f32 / 6.0;
-                let pos = exhaust - forward * step * (0.8 + world.thrust * 3.0);
-                space.draw_sphere_ex(
-                    pos,
-                    0.13 * (1.0 - step * 0.75),
-                    6,
-                    8,
-                    Color::new(80, 230, 215, (230.0 * (1.0 - step)) as u8),
-                );
-            }
-        }
+        crate::ship::draw(&mut space, &assets.ship, world, 0.38);
     }
     // Rotulos con ubicaciones alternativas para evitar superposiciones en el mapa.
     if world.selected == 8
@@ -412,7 +385,7 @@ pub fn draw_hud(d: &mut RaylibDrawHandle, world: &World, overview: bool, help: b
         15,
         MUTED,
     );
-    d.draw_text("OPERACION CROAC / v0.2", w - 253, 34, 15, MUTED);
+    d.draw_text("OPERACION CROAC / v0.2.1", w - 253, 34, 15, MUTED);
     d.draw_text("SOL  /  SISTEMA LOCAL", w - 253, 60, 17, WHITE);
 
     let nav_x = w - 247;
