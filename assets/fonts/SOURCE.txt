@@ -1,0 +1,7 @@
+Nunito - The Nunito Project Authors
+Fuente original: https://github.com/google/fonts/tree/main/ofl/nunito
+Archivo original: Nunito.ttf (Nunito[wght].ttf)
+Licencia: SIL Open Font License 1.1, incluida en OFL-Nunito.txt.
+Nunito-SemiBold.ttf y Nunito-ExtraBold.ttf son instancias estaticas de pesos 600 y 800.
+Preparadas con FontTools 4.60.1 (fontTools.varLib.instancer.instantiateVariableFont).
+No se requiere Python ni FontTools para compilar o jugar.

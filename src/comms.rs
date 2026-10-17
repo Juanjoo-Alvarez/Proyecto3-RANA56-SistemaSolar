@@ -1,0 +1,261 @@
+use crate::{
+    expedition::{Expedition, Phase},
+    simulation::*,
+};
+use std::collections::{HashSet, VecDeque};
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Kind {
+    Radio,
+    Conversation,
+}
+#[derive(Clone, Copy)]
+pub struct Speaker {
+    pub name: &'static str,
+    pub role: &'static str,
+    pub portrait: Portrait,
+}
+#[derive(Clone, Copy)]
+pub enum Portrait {
+    Luma,
+    Terminal,
+}
+pub const LUMA: Speaker = Speaker {
+    name: "Luma",
+    role: "Capitana · RANA-56",
+    portrait: Portrait::Luma,
+};
+pub const BASE: Speaker = Speaker {
+    name: "Nenúfar",
+    role: "Terminal de exploración",
+    portrait: Portrait::Terminal,
+};
+pub struct Message {
+    pub speaker: Speaker,
+    pub text: String,
+    pub kind: Kind,
+}
+pub struct Active {
+    pub message: Message,
+    pub elapsed: f32,
+    pub revealed: f32,
+}
+impl Active {
+    pub fn complete(&self) -> bool {
+        self.revealed as usize >= self.message.text.chars().count()
+    }
+    pub fn visible(&self) -> String {
+        self.message
+            .text
+            .chars()
+            .take(self.revealed as usize)
+            .collect()
+    }
+}
+#[derive(Default)]
+pub struct Comms {
+    pub active: Option<Active>,
+    radio: VecDeque<Message>,
+    conversation: VecDeque<Message>,
+    suspended: Option<Active>,
+    seen: HashSet<&'static str>,
+    pub time: f32,
+    pub toast_left: f32,
+    pub toast: String,
+    pub conversations_finished: u32,
+    pub messages_shown: u32,
+}
+impl Comms {
+    fn select_next(&mut self) {
+        if self.active.is_some() {
+            return;
+        }
+        if let Some(message) = self.conversation.pop_front() {
+            self.active = Some(Active {
+                message,
+                elapsed: 0.0,
+                revealed: 0.0,
+            });
+        } else if let Some(saved) = self.suspended.take() {
+            self.active = Some(saved);
+            return;
+        } else if let Some(message) = self.radio.pop_front() {
+            self.active = Some(Active {
+                message,
+                elapsed: 0.0,
+                revealed: 0.0,
+            });
+        }
+        if self.active.is_some() {
+            self.messages_shown += 1;
+        }
+    }
+    pub fn radio_once(&mut self, id: &'static str, text: impl Into<String>) {
+        if !self.seen.insert(id) {
+            return;
+        }
+        self.radio.push_back(Message {
+            speaker: LUMA,
+            text: text.into(),
+            kind: Kind::Radio,
+        });
+        self.select_next();
+    }
+    pub fn blocking(&self) -> bool {
+        self.active
+            .as_ref()
+            .is_some_and(|a| a.message.kind == Kind::Conversation)
+            || !self.conversation.is_empty()
+    }
+    pub fn begin_conversation(&mut self) {
+        if self.blocking() {
+            return;
+        }
+        self.suspended = self.active.take();
+        for (speaker, text) in [
+            (LUMA, "Base Nenúfar, aquí Luma. ¿Reciben mi señal?"),
+            (
+                BASE,
+                "Te recibimos, capitana. Activa las tres balizas. Usa los escalones y un salto cargado para alcanzar la plataforma central.",
+            ),
+            (
+                LUMA,
+                "¡Entendido! Revisaré la señal y regresaré a la RANA-56. Mi tripulación cuenta conmigo.",
+            ),
+        ] {
+            self.conversation.push_back(Message {
+                speaker,
+                text: text.into(),
+                kind: Kind::Conversation,
+            });
+        }
+        self.select_next();
+    }
+    pub fn reveal_all(&mut self) {
+        if let Some(a) = &mut self.active {
+            a.revealed = a.message.text.chars().count() as f32;
+        }
+    }
+    pub fn advance(&mut self) {
+        if self.active.as_ref().is_some_and(|a| !a.complete()) {
+            self.reveal_all();
+            return;
+        }
+        if self
+            .active
+            .take()
+            .is_some_and(|a| a.message.kind == Kind::Conversation)
+            && self.conversation.is_empty()
+        {
+            self.conversations_finished += 1;
+        }
+        self.select_next();
+    }
+    pub fn update(&mut self, dt: f32) {
+        self.time += dt;
+        self.toast_left = (self.toast_left - dt).max(0.0);
+        self.select_next();
+        if let Some(a) = &mut self.active {
+            a.elapsed += dt;
+            a.revealed = (a.revealed + dt * 35.0).min(a.message.text.chars().count() as f32);
+            if a.message.kind == Kind::Radio
+                && a.elapsed > a.message.text.chars().count() as f32 / 35.0 + 4.5
+            {
+                self.active = None;
+                self.select_next();
+            }
+        }
+    }
+    pub fn observe(&mut self, e: &Expedition, before: [bool; 3]) {
+        if e.phase == Phase::OnFoot {
+            self.radio_once(
+                "boots",
+                "¡Botas en la Luna! Primero recuperaré la señal de estas tres balizas.",
+            );
+            if length(e.astronaut.position - v(0.0, 0.0, -18.0)) < 16.0 || e.astronaut.charging {
+                self.radio_once(
+                    "jump",
+                    "Esa plataforma está alta. Cargaré el salto y aprovecharé los escalones.",
+                );
+            }
+        }
+        for (i, (&was, &now)) in before.iter().zip(e.beacons.iter()).enumerate() {
+            if !was && now {
+                self.toast = format!("Baliza {} conectada", i + 1);
+                self.toast_left = 3.5;
+                let id = ["beacon1", "beacon2", "beacon3"][i];
+                let count = e.beacons.iter().filter(|&&b| b).count();
+                if count == 3 {
+                    self.radio_once("all","¡Señal recuperada! Las tres balizas están listas. Es hora de volver a la nave.");
+                } else {
+                    self.radio_once(
+                        id,
+                        format!(
+                            "¡Baliza {} conectada! Ya recuperé {count} de las tres señales.",
+                            i + 1
+                        ),
+                    );
+                }
+            }
+        }
+        if e.completed {
+            self.radio_once("complete","Prueba lunar completada. RANA-56, listos para seguir buscando a nuestra tripulación.");
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn unicode_reveal_and_single_delivery_are_safe() {
+        let mut c = Comms::default();
+        c.radio_once("test", "¡Señal recuperada, capitán! 🐸");
+        c.radio_once("test", "duplicado");
+        c.update(0.08);
+        assert_eq!(c.active.as_ref().unwrap().visible(), "¡S");
+        c.advance();
+        assert!(c.active.as_ref().unwrap().complete());
+        assert!(c.active.is_some());
+        c.advance();
+        assert!(c.active.is_none());
+        assert_eq!(c.messages_shown, 1);
+    }
+    #[test]
+    fn conversation_pauses_and_restores_radio_without_losing_progress() {
+        let mut c = Comms::default();
+        c.radio_once("first", "Mensaje de radio en progreso");
+        c.update(0.15);
+        let visible = c.active.as_ref().unwrap().visible();
+        c.begin_conversation();
+        assert!(c.blocking());
+        c.radio_once("later", "Otro mensaje");
+        for _ in 0..3 {
+            c.advance();
+            assert!(c.active.as_ref().unwrap().complete());
+            c.advance();
+        }
+        assert!(!c.blocking());
+        assert_eq!(c.conversations_finished, 1);
+        assert_eq!(c.active.as_ref().unwrap().visible(), visible);
+        c.update(20.0);
+        assert_eq!(c.active.as_ref().unwrap().message.text, "Otro mensaje");
+    }
+    #[test]
+    fn messages_do_not_repeat_when_revisiting_or_restart() {
+        let mut c = Comms::default();
+        let mut e = Expedition {
+            phase: Phase::OnFoot,
+            ..Default::default()
+        };
+        c.observe(&e, [false; 3]);
+        c.observe(&e, [false; 3]);
+        assert_eq!(c.messages_shown, 1);
+        e.beacons = [true; 3];
+        c.observe(&e, [false; 3]);
+        let count = c.radio.len();
+        c.observe(&e, [true; 3]);
+        assert_eq!(c.radio.len(), count);
+        assert!(c.toast_left > 0.0);
+    }
+}

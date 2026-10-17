@@ -108,6 +108,21 @@ pub const SHIP_BLOCK: Platform = Platform {
         z: 7.0,
     },
 };
+pub const TERMINAL: Platform = Platform {
+    center: Vector3 {
+        x: 18.0,
+        y: 0.95,
+        z: 24.0,
+    },
+    size: Vector3 {
+        x: 1.8,
+        y: 1.9,
+        z: 1.4,
+    },
+};
+fn solids() -> impl Iterator<Item = Platform> {
+    PLATFORMS.into_iter().chain([SHIP_BLOCK, TERMINAL])
+}
 
 #[derive(Clone, Copy, Default)]
 pub struct WalkInput {
@@ -165,6 +180,9 @@ pub fn floor(p: Vector3) -> f32 {
 impl Astronaut {
     pub fn near_ship(&self) -> bool {
         length(self.position - SPAWN) < 4.5 && self.grounded
+    }
+    pub fn near_terminal(&self) -> bool {
+        length(v(self.position.x, 0.0, self.position.z) - v(18.0, 0.0, 24.0)) < 3.8 && self.grounded
     }
     pub fn update(&mut self, input: WalkInput, dt: f32) {
         let dt = dt.clamp(0.0, 0.05);
@@ -246,7 +264,7 @@ impl Astronaut {
             } else {
                 self.position.z += self.velocity.z * dt;
             }
-            for b in PLATFORMS.into_iter().chain(std::iter::once(SHIP_BLOCK)) {
+            for b in solids() {
                 if self.position.y >= b.top() - 0.03
                     || self.position.y + HEIGHT <= b.center.y - b.size.y * 0.5
                 {
@@ -270,7 +288,7 @@ impl Astronaut {
         let was_grounded = self.grounded;
         self.grounded = false;
         let mut support = floor(self.position);
-        for b in PLATFORMS.into_iter().chain(std::iter::once(SHIP_BLOCK)) {
+        for b in solids() {
             if b.contains(self.position, RADIUS * 0.55) {
                 if self.velocity.y <= 0.0 && old.y >= b.top() - 0.04 && self.position.y <= b.top() {
                     support = support.max(b.top());
@@ -314,15 +332,11 @@ impl Astronaut {
         let mut safe = target;
         for i in 1..=48 {
             let p = target + (desired - target) * (i as f32 / 48.0);
-            if PLATFORMS
-                .into_iter()
-                .chain(std::iter::once(SHIP_BLOCK))
-                .any(|b| {
-                    b.contains(p, 0.2)
-                        && p.y > b.center.y - b.size.y * 0.5 - 0.2
-                        && p.y < b.top() + 0.25
-                })
-            {
+            if solids().any(|b| {
+                b.contains(p, 0.2)
+                    && p.y > b.center.y - b.size.y * 0.5 - 0.2
+                    && p.y < b.top() + 0.25
+            }) {
                 break;
             }
             safe = p;

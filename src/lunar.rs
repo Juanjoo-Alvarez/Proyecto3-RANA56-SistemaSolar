@@ -31,13 +31,7 @@ fn triangle<D: RaylibDraw3D>(d: &mut D, a: Vector3, b: Vector3, c: Vector3, colo
     d.draw_triangle3D(a, b, c, color);
     d.draw_triangle3D(c, b, a, color);
 }
-pub fn draw(
-    d: &mut RaylibDrawHandle,
-    assets: &mut Assets,
-    e: &Expedition,
-    camera: Camera3D,
-    pad: bool,
-) {
+pub fn draw(d: &mut RaylibDrawHandle, assets: &mut Assets, e: &Expedition, camera: Camera3D) {
     let (w, h) = (d.get_screen_width(), d.get_screen_height());
     d.clear_background(Color::new(7, 10, 26, 255));
     d.draw_rectangle_gradient_v(
@@ -185,6 +179,24 @@ pub fn draw(
                 Color::new(249, 184, 81, 255),
             );
         }
+        let terminal = crate::astronaut::TERMINAL;
+        s.draw_cube_v(terminal.center, terminal.size, Color::new(39, 72, 87, 255));
+        s.draw_cube(
+            v(18.0, 1.22, 24.72),
+            1.4,
+            0.9,
+            0.06,
+            Color::new(108, 229, 187, 255),
+        );
+        s.draw_sphere_ex(v(18.0, 2.08, 24.0), 0.18, 6, 8, Color::GOLD);
+        s.draw_cylinder(
+            v(18.0, 0.01, 24.0),
+            3.5,
+            3.5,
+            0.01,
+            24,
+            Color::new(100, 215, 171, 28),
+        );
         for (i, b) in BEACONS.iter().enumerate() {
             let c = if e.beacons[i] {
                 ACCENT
@@ -221,143 +233,4 @@ pub fn draw(
             crate::frog::draw(&mut s, &assets.frog_mesh, &e.astronaut);
         }
     }
-    let collected = e.beacons.iter().filter(|&&b| b).count();
-    for (i, b) in BEACONS.iter().enumerate() {
-        if let Some(p) = scene::project(*b + v(0.0, 4.0, 0.0), camera, w, h)
-            && p.x > 30.0
-            && p.x < (w - 200) as f32
-            && p.y > 160.0
-            && p.y < (h - 190) as f32
-        {
-            d.draw_text(
-                &format!("BALIZA {} {}", i + 1, if e.beacons[i] { "OK" } else { "" }),
-                p.x as i32 - 40,
-                p.y as i32,
-                16,
-                if e.beacons[i] { ACCENT } else { Color::GOLD },
-            );
-        }
-    }
-    d.draw_rectangle(24, 24, 430, 83, Color::new(7, 17, 32, 235));
-    d.draw_rectangle(24, 24, 4, 83, ACCENT);
-    d.draw_text("BASE NENUFAR", 44, 38, 30, Color::WHITE);
-    d.draw_text("LUNA / EXPLORACION A PIE / v0.3", 44, 79, 15, ACCENT);
-    d.draw_rectangle(w - 340, 24, 316, 96, Color::new(7, 17, 32, 235));
-    d.draw_text(
-        &format!("TELEMETRIA   {collected} / 3"),
-        w - 320,
-        42,
-        23,
-        ACCENT,
-    );
-    d.draw_text(
-        if collected == 3 {
-            "Vuelve a tu nave para despegar"
-        } else {
-            "Salta hasta las tres balizas doradas"
-        },
-        w - 320,
-        82,
-        14,
-        Color::WHITE,
-    );
-    d.draw_rectangle(24, h - 142, w - 48, 118, Color::new(7, 17, 32, 235));
-    if e.astronaut_visible() {
-        let a = &e.astronaut;
-        d.draw_text("LUMA / RANA DE ARBOL / CAPITANA", 44, h - 124, 18, ACCENT);
-        d.draw_text(if pad {"Stick izq: caminar   Stick der: camara   X: saltar (mantener para cargar)   R2: correr"} else {"WASD: caminar   Flechas: camara   Espacio: saltar (mantener para cargar)   Shift: correr"},44,h-91,16,Color::WHITE);
-        let message = match e.phase {
-            Phase::Disembark => "DESCENSO DE LA TRIPULANTE / Preparando exploracion",
-            Phase::Boarding => "ABORDANDO RANA-56 / Preparando cabina",
-            _ if a.near_ship() => {
-                if pad {
-                    "TRIANGULO: abordar la nave   |   Options: pausa   |   Arriba: ayuda"
-                } else {
-                    "E: abordar la nave   |   Esc: pausa   |   H: ayuda"
-                }
-            }
-            _ => {
-                "Explora las plataformas. La baliza central requiere un salto cargado desde los escalones."
-            }
-        };
-        d.draw_text(message, 44, h - 58, 16, ACCENT);
-        if a.charging {
-            d.draw_rectangle(w / 2 - 125, h - 205, 250, 40, Color::new(7, 17, 32, 240));
-            d.draw_rectangle(
-                w / 2 - 115,
-                h - 196,
-                (230.0 * a.charge) as i32,
-                8,
-                Color::GOLD,
-            );
-            d.draw_text("CARGANDO SALTO", w / 2 - 105, h - 181, 14, Color::GOLD);
-        }
-    } else {
-        d.draw_text(
-            &format!(
-                "ALTURA  {:02.0} m    VELOCIDAD  {:02.0} m/s",
-                e.local.position.y,
-                length(e.local.velocity)
-            ),
-            44,
-            h - 124,
-            18,
-            ACCENT,
-        );
-        d.draw_text(
-            if pad {
-                "R2/L2 avanzar/retroceder   Stick izq: orientar suave   Stick der: orientar"
-            } else {
-                "W/S avanzar/retroceder   A/D lateral   Espacio/Ctrl altura   Flechas orientar"
-            },
-            44,
-            h - 91,
-            17,
-            Color::WHITE,
-        );
-        let message = match e.phase {
-            Phase::Landing => "DESCENSO EN CURSO / Motores de aproximacion",
-            Phase::Launch => "ASCENSO EN CURSO / Regresando al sistema solar",
-            _ if e.at_pad() => {
-                if pad {
-                    "X: despegar   |   Cuadrado: salir de la nave   |   Options: pausa"
-                } else {
-                    "E: despegar   |   Q: salir de la nave   |   Esc: pausa"
-                }
-            }
-            _ => "Explora el patio. Para salir, vuelve a la plataforma H y reduce velocidad.",
-        };
-        d.draw_text(message, 44, h - 58, 16, ACCENT);
-    }
-    // Brújula hacia la plataforma; siempre visible aunque quede detras de la camara.
-    let delta = if e.astronaut_visible() {
-        crate::astronaut::SPAWN - e.astronaut.position
-    } else {
-        PAD - e.local.position
-    };
-    let yaw = if e.astronaut_visible() {
-        e.astronaut.camera_yaw
-    } else {
-        e.local.yaw
-    };
-    let angle = delta.x.atan2(delta.z) - yaw;
-    let (cx, cy) = (w - 106, h - 224);
-    d.draw_circle(cx, cy, 48.0, Color::new(7, 17, 32, 230));
-    d.draw_circle_lines(cx, cy, 48.0, ACCENT);
-    d.draw_line_ex(
-        Vector2::new(cx as f32, cy as f32),
-        Vector2::new(
-            cx as f32 - angle.sin() * 32.0,
-            cy as f32 - angle.cos() * 32.0,
-        ),
-        3.0,
-        ACCENT,
-    );
-    d.draw_text(
-        &format!("H  {:.0} m", length(delta)),
-        cx - 38,
-        cy + 55,
-        16,
-        Color::WHITE,
-    );
 }

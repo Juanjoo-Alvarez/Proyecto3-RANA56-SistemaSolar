@@ -1,12 +1,14 @@
 mod astronaut;
+mod comms;
 mod controls;
 mod expedition;
 mod frog;
-mod interface;
+mod hud;
 mod lunar;
 mod scene;
 mod ship;
 mod simulation;
+mod ui;
 
 use raylib::prelude::*;
 use simulation::*;
@@ -25,6 +27,10 @@ struct Options {
     flight_check: bool,
     walking: bool,
     portrait: bool,
+    radio_preview: bool,
+    dialogue_preview: bool,
+    compact: bool,
+    pad_preview: bool,
 }
 fn options() -> Result<Options, String> {
     let mut opts = Options {
@@ -40,6 +46,10 @@ fn options() -> Result<Options, String> {
         flight_check: false,
         walking: false,
         portrait: false,
+        radio_preview: false,
+        dialogue_preview: false,
+        compact: false,
+        pad_preview: false,
     };
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -64,6 +74,16 @@ fn options() -> Result<Options, String> {
             "--smoke-tour" => opts.smoke_tour = true,
             "--flight-check" => opts.flight_check = true,
             "--walking" => opts.walking = true,
+            "--radio-preview" => {
+                opts.walking = true;
+                opts.radio_preview = true;
+            }
+            "--dialogue-preview" => {
+                opts.walking = true;
+                opts.dialogue_preview = true;
+            }
+            "--compact" => opts.compact = true,
+            "--pad-preview" => opts.pad_preview = true,
             "--portrait" => {
                 opts.walking = true;
                 opts.portrait = true;
@@ -81,7 +101,7 @@ fn options() -> Result<Options, String> {
             }
             "--help" => {
                 println!(
-                    "RANA / 56 - Operacion Croac v0.3.0\ncargo run --release\nOpciones: --frames N --capture archivo.png --overview --planet 1..8 --hidden --lunar --near-moon --controller-report --smoke-tour --flight-check --walking --portrait"
+                    "RANA / 56 - Operacion Croac v0.3.1\ncargo run --release\nOpciones: --frames N --capture archivo.png --overview --planet 1..8 --hidden --lunar --near-moon --controller-report --smoke-tour --flight-check --walking --portrait --radio-preview --dialogue-preview --compact --pad-preview"
                 );
                 std::process::exit(0);
             }
@@ -114,8 +134,11 @@ fn run() -> Result<(), String> {
     let root = project_root()?;
     let mut builder = raylib::init();
     builder
-        .size(1440, 900)
-        .title("RANA-56 | Operacion Croac v0.3.0 - Proyecto 3")
+        .size(
+            if opts.compact { 1280 } else { 1440 },
+            if opts.compact { 800 } else { 900 },
+        )
+        .title("RANA-56 | Operacion Croac v0.3.1 - Proyecto 3")
         .resizable()
         .msaa_4x()
         .log_level(TraceLogLevel::LOG_WARNING);
@@ -127,6 +150,14 @@ fn run() -> Result<(), String> {
     rl.set_target_fps(if opts.smoke_tour { 0 } else { 60 });
     rl.set_window_min_size(1280, 800);
     let mut assets = scene::Assets::load(&mut rl, &thread, &root)?;
+    let ui = ui::Ui::load(&mut rl, &thread, &root)?;
+    let mut comms = comms::Comms::default();
+    if opts.dialogue_preview {
+        comms.begin_conversation();
+        comms.reveal_all();
+        comms.advance();
+        comms.reveal_all();
+    }
     let mut world = World::default();
     let mut expedition = expedition::Expedition::default();
     let mut controls = controls::Controls::default();
@@ -176,6 +207,7 @@ fn run() -> Result<(), String> {
     };
     let mut frames = 0u32;
     let mut trial = astronaut::TrialPilot::default();
+    let mut smoke_conversation = false;
     while !rl.window_should_close() {
         use KeyboardKey::*;
         let dt = if opts.frames.is_some() {
@@ -185,6 +217,7 @@ fn run() -> Result<(), String> {
         };
         let action = controls.read(&rl);
         let previous_phase = expedition.phase;
+        let previous_beacons = expedition.beacons;
         if frames == 0 || controls.disconnected {
             controls.report(&rl);
         }
@@ -232,6 +265,15 @@ fn run() -> Result<(), String> {
             }
             consumed = true;
         }
+        if !consumed && comms.blocking() {
+            if action.confirm {
+                comms.advance();
+            }
+            consumed = true;
+        }
+        if !consumed && action.radio_advance {
+            comms.advance();
+        }
         if !consumed {
             if action.help {
                 help = true;
@@ -264,7 +306,11 @@ fn run() -> Result<(), String> {
                 }
                 if expedition.phase == expedition::Phase::OnFoot {
                     if action.foot_interact {
-                        expedition.interact(&mut world);
+                        if expedition.astronaut.near_terminal() {
+                            comms.begin_conversation();
+                        } else {
+                            expedition.interact(&mut world);
+                        }
                     }
                 } else if action.interact {
                     expedition.interact(&mut world);
@@ -292,7 +338,18 @@ fn run() -> Result<(), String> {
                     }
                 }
                 expedition::Phase::OnFoot => {
-                    walk = trial.input(&expedition.astronaut, dt);
+                    if !smoke_conversation {
+                        comms.begin_conversation();
+                        smoke_conversation = true;
+                    }
+                    if comms.blocking() {
+                        walk = astronaut::WalkInput::default();
+                        if frames.is_multiple_of(60) {
+                            comms.advance();
+                        }
+                    } else {
+                        walk = trial.input(&expedition.astronaut, dt);
+                    }
                     if expedition.beacons.iter().all(|b| *b) && expedition.astronaut.near_ship() {
                         expedition.interact(&mut world);
                     }
@@ -305,9 +362,17 @@ fn run() -> Result<(), String> {
             && !help
             && !diagnostic
             && !world.paused
+            && !comms.blocking()
             && (!consumed || opts.smoke_tour)
         {
             expedition.update(&mut world, input, walk, dt);
+        }
+        comms.observe(&expedition, previous_beacons);
+        if !world.paused && !help && !diagnostic {
+            comms.update(dt);
+        }
+        if opts.radio_preview || opts.dialogue_preview {
+            comms.reveal_all();
         }
         if previous_phase != expedition.phase {
             println!("Fase: {:?}", expedition.phase);
@@ -345,26 +410,33 @@ fn run() -> Result<(), String> {
         {
             let mut d = rl.begin_drawing(&thread);
             if expedition.phase == expedition::Phase::Orbit {
-                scene::draw_scene(&mut d, &mut assets, &world, active_camera, orbits, overview);
-                scene::draw_hud(&mut d, &world, overview, false);
-            } else {
-                lunar::draw(
+                scene::draw_scene(
                     &mut d,
                     &mut assets,
-                    &expedition,
+                    &world,
                     active_camera,
-                    controls.pad.is_some(),
+                    orbits,
+                    overview,
+                    &ui,
                 );
+            } else {
+                lunar::draw(&mut d, &mut assets, &expedition, active_camera);
             }
-            interface::overlay(
-                &mut d,
-                &controls,
-                &world,
-                &expedition,
+            hud::Hud {
+                ui: &ui,
+                controls: &controls,
+                world: &world,
+                e: &expedition,
+                comms: &comms,
+                camera: active_camera,
+                overview,
                 help,
                 diagnostic,
                 menu,
-            );
+                gamepad_hints: controls.pad_hints() || opts.pad_preview,
+                turbo: action.flight.boost,
+            }
+            .draw(&mut d);
         }
         frames += 1;
         let final_frame = opts.frames.is_some_and(|limit| frames >= limit)
@@ -391,6 +463,13 @@ fn run() -> Result<(), String> {
     if opts.smoke_tour && !expedition.completed {
         return Err("La prueba de ida y vuelta no termino".into());
     }
+    if opts.smoke_tour && comms.conversations_finished != 1 {
+        return Err("No se completo la conversacion de prueba".into());
+    }
+    println!(
+        "Comunicaciones: {} mensajes; {} conversaciones completadas",
+        comms.messages_shown, comms.conversations_finished
+    );
     println!(
         "Sesion terminada: {frames} frames; fase {:?}; balizas {:?}; recorrido completo: {}",
         expedition.phase, expedition.beacons, expedition.completed

@@ -4,7 +4,6 @@ use std::f32::consts::TAU;
 use std::path::Path;
 
 pub const ACCENT: Color = Color::new(125, 238, 202, 255);
-const MUTED: Color = Color::new(138, 160, 181, 255);
 const WHITE: Color = Color::new(229, 240, 248, 255);
 
 pub struct Assets {
@@ -149,6 +148,7 @@ pub fn draw_scene(
     camera: Camera3D,
     orbits: bool,
     overview: bool,
+    ui: &crate::ui::Ui,
 ) {
     let (w, h) = (d.get_screen_width(), d.get_screen_height());
     d.clear_background(Color::new(4, 8, 17, 255));
@@ -253,13 +253,16 @@ pub fn draw_scene(
         && p.y < (h - 180) as f32
     {
         d.draw_circle_lines(p.x as i32, p.y as i32, 12.0, ACCENT);
-        d.draw_text(
-            "LUNA / BASE NENUFAR",
-            p.x as i32 + 19,
-            p.y as i32 - 6,
-            14,
-            ACCENT,
-        );
+        if !overview {
+            ui.text(
+                d,
+                "LUNA / BASE NENUFAR",
+                p.x + 19.0,
+                p.y - 6.0,
+                17.0,
+                ACCENT,
+            );
+        }
     }
     let mut labels = Vec::<(i32, i32, i32, i32)>::new();
     if let Some(sun) = project(v(0.0, 0.0, 0.0), camera, w, h) {
@@ -276,7 +279,14 @@ pub fn draw_scene(
     if let Some(sun) = project(v(0.0, 16.0, 0.0), camera, w, h) {
         let (x, y) = (sun.x as i32 - 15, sun.y as i32 - 18);
         if x > 30 && x < w - 260 && y > 150 && y < h - 175 {
-            d.draw_text("SOL", x, y, 16, Color::new(255, 201, 115, 255));
+            ui.text(
+                d,
+                "Sol",
+                x as f32,
+                y as f32,
+                18.0,
+                Color::new(255, 201, 115, 255),
+            );
             labels.push((x - 8, y - 6, 50, 29));
         }
     }
@@ -292,7 +302,7 @@ pub fn draw_scene(
                 && (overview || i == world.selected || length(position - camera.position) < 120.0)
             {
                 let text = format!("{:02}  {}", i + 1, p.name);
-                let width = text.len() as i32 * 9;
+                let width = ui.width(&text, 18.0) as i32;
                 for (dx, dy) in [
                     (32, 12),
                     (-width - 18, -22),
@@ -323,7 +333,7 @@ pub fn draw_scene(
                     };
                     d.draw_circle(x, y + 20, 2.5, p.color);
                     d.draw_line(x, y + 20, anchor_x, y + dy + 8, p.color);
-                    d.draw_text(&text, x + dx, y + dy, 16, WHITE);
+                    ui.text(d, &text, (x + dx) as f32, (y + dy) as f32, 18.0, WHITE);
                     labels.push(rect);
                     break;
                 }
@@ -364,187 +374,6 @@ fn rings<D: RaylibDraw3D>(d: &mut D, pos: Vector3, radius: f32, icy: bool) {
             for (a, b, c) in [(p0, p1, p2), (p0, p2, p3), (p2, p1, p0), (p3, p2, p0)] {
                 d.draw_triangle3D(a, b, c, color);
             }
-        }
-    }
-}
-
-fn panel(d: &mut RaylibDrawHandle, x: i32, y: i32, w: i32, h: i32) {
-    d.draw_rectangle(x, y, w, h, Color::new(9, 18, 29, 225));
-    d.draw_rectangle_lines(x, y, w, h, Color::new(42, 64, 80, 230));
-}
-
-pub fn draw_hud(d: &mut RaylibDrawHandle, world: &World, overview: bool, help: bool) {
-    let (w, h) = (d.get_screen_width(), d.get_screen_height());
-    let visited = world.visited.iter().filter(|&&x| x).count();
-    d.draw_rectangle(28, 30, 4, 58, ACCENT);
-    d.draw_text("RANA / 56", 48, 29, 34, WHITE);
-    d.draw_text("ODISEA SOLAR   /   PROYECTO 03", 49, 69, 15, MUTED);
-    let status = if world.paused {
-        "SIMULACION EN PAUSA"
-    } else if overview {
-        "CARTA DEL SISTEMA"
-    } else {
-        "EXPLORACION ORBITAL"
-    };
-    d.draw_text(status, w / 2 - 110, 36, 17, ACCENT);
-    d.draw_text(
-        &format!("REGISTRO  {visited:02} / 08"),
-        w / 2 - 78,
-        63,
-        15,
-        MUTED,
-    );
-    d.draw_text("OPERACION CROAC / v0.3.0", w - 253, 34, 15, MUTED);
-    d.draw_text("SOL  /  SISTEMA LOCAL", w - 253, 60, 17, WHITE);
-
-    let nav_x = w - 247;
-    panel(d, nav_x, 118, 219, 407);
-    d.draw_text("DESTINOS", nav_x + 17, 134, 18, ACCENT);
-    d.draw_text("L1/R1 elegir | Triangulo", nav_x + 12, 160, 12, MUTED);
-    for (i, color) in PLANETS
-        .iter()
-        .map(|p| p.color)
-        .chain(std::iter::once(ACCENT))
-        .enumerate()
-    {
-        let y = 191 + i as i32 * 35;
-        if world.selected == i {
-            d.draw_rectangle(nav_x + 8, y - 3, 203, 31, Color::new(25, 52, 62, 255));
-        }
-        d.draw_text(&format!("{}", i + 1), nav_x + 17, y + 3, 16, MUTED);
-        d.draw_circle(nav_x + 46, y + 11, 4.0, color);
-        d.draw_text(
-            destination_name(i),
-            nav_x + 61,
-            y + 3,
-            16,
-            if world.selected == i { WHITE } else { MUTED },
-        );
-        if i < 8 && world.visited[i] {
-            d.draw_text("+", nav_x + 192, y + 2, 18, ACCENT);
-        }
-    }
-    let subtitle = if world.selected == 8 {
-        "LUNA / Descenso disponible / Base Nenufar"
-    } else {
-        PLANETS[world.selected].subtitle
-    };
-    d.draw_text(subtitle, 30, h - 174, 16, MUTED);
-    if world.message_left > 0.0 {
-        d.draw_rectangle(28, 111, (w - 310).min(760), 35, Color::new(15, 35, 43, 220));
-        d.draw_text(&world.message, 42, 121, 15, ACCENT);
-    }
-
-    // Radar: proyeccion cenital del sistema y posicion de la nave.
-    let rx = nav_x + 109;
-    let ry = h - 195;
-    panel(d, nav_x, h - 315, 219, 227);
-    d.draw_text("RADAR / 600 u", nav_x + 15, h - 300, 14, MUTED);
-    for p in PLANETS {
-        d.draw_circle_lines(rx, ry, p.orbit * 0.29, Color::new(35, 56, 72, 255));
-    }
-    d.draw_circle(rx, ry, 4.0, Color::new(255, 191, 79, 255));
-    for (i, p) in PLANETS.iter().enumerate() {
-        let pos = p.position(world.time);
-        let x = rx + (pos.x * 0.29) as i32;
-        let y = ry + (pos.z * 0.29) as i32;
-        d.draw_circle(x, y, if i == world.selected { 4.0 } else { 2.5 }, p.color);
-    }
-    let px = rx + (world.position.x * 0.29) as i32;
-    let py = ry + (world.position.z * 0.29) as i32;
-    d.draw_circle(px, py, 3.0, ACCENT);
-    d.draw_line(
-        px,
-        py,
-        px + (world.forward().x * 10.0) as i32,
-        py + (world.forward().z * 10.0) as i32,
-        ACCENT,
-    );
-
-    panel(d, 28, h - 143, w - 303, 115);
-    d.draw_text("VELOCIDAD", 46, h - 125, 13, MUTED);
-    d.draw_text(
-        &format!("{:02.0}", length(world.velocity)),
-        46,
-        h - 104,
-        36,
-        WHITE,
-    );
-    d.draw_text("u/s", 107, h - 88, 15, MUTED);
-    d.draw_line(165, h - 123, 165, h - 49, Color::new(45, 68, 82, 255));
-    d.draw_text("NAVEGACION", 188, h - 125, 13, MUTED);
-    d.draw_text(destination_name(world.selected), 188, h - 101, 25, WHITE);
-    d.draw_text(
-        &format!("{:.0} u hasta superficie", world.target_distance()),
-        188,
-        h - 64,
-        14,
-        MUTED,
-    );
-    let mode = if world.autopilot.is_some() {
-        "PILOTO AUTOMATICO"
-    } else {
-        "VUELO MANUAL"
-    };
-    d.draw_text(mode, 438, h - 122, 16, ACCENT);
-    d.draw_text(
-        "W/S  impulso    A/D  lateral    Flechas  orientar",
-        438,
-        h - 94,
-        14,
-        WHITE,
-    );
-    d.draw_text(
-        "ESP/CTRL  altura    SHIFT  turbo    X  frenar",
-        438,
-        h - 71,
-        14,
-        MUTED,
-    );
-    d.draw_text(
-        "TAB  mapa   F  ruta   O  orbitas   P  pausa   H  ayuda",
-        30,
-        h - 19,
-        13,
-        MUTED,
-    );
-    if !overview {
-        let x = w / 2;
-        let y = h / 2;
-        d.draw_line(x - 9, y, x - 4, y, Color::new(140, 215, 208, 100));
-        d.draw_line(x + 4, y, x + 9, y, Color::new(140, 215, 208, 100));
-        d.draw_line(x, y - 9, x, y - 4, Color::new(140, 215, 208, 100));
-    }
-    if world.paused {
-        d.draw_text("PAUSA", w / 2 - 65, h / 2 - 28, 38, WHITE);
-    }
-    if help {
-        let x = w / 2 - 300;
-        let y = h / 2 - 225;
-        panel(d, x, y, 600, 450);
-        d.draw_text("BITACORA DEL PILOTO", x + 28, y + 26, 26, ACCENT);
-        let lines = [
-            "Mision: acercate a los ocho planetas para registrarlos.",
-            "W / S        Avanzar / retroceder",
-            "A / D        Desplazamiento lateral",
-            "Flechas      Orientar la nave (giro e inclinacion)",
-            "Espacio/Ctrl Subir / bajar",
-            "Shift        Turbo      X: frenar",
-            "1 - 8        Viajar al planeta seleccionado",
-            "F            Iniciar / cancelar piloto automatico",
-            "Tab          Vista general / tercera persona",
-            "O / P        Orbitas / pausa",
-            "R / F12      Reiniciar posicion / guardar captura",
-            "H / Escape   Cerrar ayuda / salir del juego",
-        ];
-        for (i, line) in lines.iter().enumerate() {
-            d.draw_text(
-                line,
-                x + 28,
-                y + 78 + i as i32 * 28,
-                16,
-                if i == 0 { WHITE } else { MUTED },
-            );
         }
     }
 }

@@ -1,12 +1,33 @@
 # RANA / 56 — Operación Croac
 
-**Proyecto 3 · Versión 0.3.0 · Nuestra astronauta**
+**Proyecto 3 · Versión 0.3.1 · HUD y comunicaciones**
 
 Juan Jose Rivas Alvarez · Carnet 24856
 
 Aventura del sistema solar en **Rust y raylib 6.0.0**. Pilota la nave RANA-56, aterriza en la Luna y explora a pie con **Luma**, una rana de árbol de ojos rojos con traje espacial. La versión 0.3 agrega movimiento, saltos, cámara, animaciones y un circuito de plataformas para probarlos.
 
-![Luma, la capitana de RANA-56](screenshots/luma-v03.png)
+![Radio de Luma con la nueva HUD](screenshots/radio-v031.png)
+
+## Hotfix 0.3.1: HUD y radio
+
+- Tipografía redondeada Nunito, con pesos distintos para títulos y texto, acentos y filtrado suave.
+- Paneles compactos, colores crema/menta/dorado y detalles de nenúfar. Los controles completos viven en la ayuda.
+- A pie: ubicación, tres señales, orientación hacia la nave y acciones cercanas. La barra de salto solo aparece al cargar.
+- En vuelo: destino, distancia, velocidad, impulso y radar. La lista de destinos se muestra dentro del mapa.
+- Símbolos de los botones PlayStation dibujados en código. Los avisos cambian entre mando y teclado según el último dispositivo utilizado.
+- Caja de comunicaciones inspirada en los juegos de aventura espacial de N64: retrato animado, nombre, función, texto progresivo y aviso de avance.
+- Mensajes de radio por eventos de Luma: salida, aprendizaje del salto, balizas y final del circuito. Se encolan y se emiten una sola vez por sesión.
+- Aviso breve con retrato al conectar una baliza.
+
+### Probar las comunicaciones
+
+La **radio** permite seguir jugando. Pulsa **cruceta abajo / Enter** para completar el texto; vuelve a pulsar para cerrar ese mensaje. También desaparece automáticamente después de dejar tiempo para leerlo.
+
+Para una **conversación directa**, camina hacia la terminal de pantalla verde, unos pasos a la derecha de la nave, y pulsa **Triángulo / E** cuando aparezca «Hablar con la base». La acción se detiene mientras lees. Pulsa **X / Enter** para completar el texto y vuelve a pulsar para avanzar. Al terminar recuperas el control. Una radio interrumpida por una conversación conserva su progreso y continúa después.
+
+El sistema guarda el personaje, su función y retrato por mensaje para incorporar a los tripulantes en futuras versiones. Esta entrega contiene a Luma y a la terminal Nenúfar; los rescates siguen previstos para las siguientes versiones. No incluye voces grabadas.
+
+![Conversación con la terminal Nenúfar](screenshots/dialogo-v031.png)
 
 ## Qué incluye la versión 0.3
 
@@ -24,7 +45,7 @@ El circuito es una zona de práctica de la astronauta. Los rescates de la tripul
 
 ## Probar hoy
 
-En la carpeta local `dist/RANA56-v0.3.0/`:
+En la carpeta local `dist/RANA56-v0.3.1/`:
 
 - Abre **`rana-solar.exe`** para empezar en el sistema solar.
 - Abre **`ExplorarLaLuna.cmd`** para comenzar directamente junto a la nave y probar a Luma.
@@ -54,6 +75,9 @@ Puedes regresar al espacio sin completar el circuito y volver más tarde en la m
 | Pausa y menú | Options | Escape / P |
 | Ayuda | Cruceta arriba | H |
 | Diagnóstico de mando | Share / Create | F3 |
+| Hablar con la terminal | Triángulo | E |
+| Completar / avanzar conversación | X | Enter |
+| Completar / cerrar radio | Cruceta abajo | Enter |
 | Reubicar | Menú de pausa | R |
 
 Al cargar el salto, Luma se agacha y aparece una barra. A la carga máxima el salto se ejecuta automáticamente. Mantener el botón después no provoca saltos repetidos. El stick conserva su intensidad analógica para caminar despacio o a velocidad completa.
@@ -114,7 +138,7 @@ cargo clippy --release --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-Las 18 pruebas cubren navegación, motores, movimiento a pie a distintas tasas de cuadros, paredes, aterrizaje sobre plataformas, obstrucción de cámara, salto corto/cargado, prevención de saltos repetidos, pausa y ciclo completo de salida y abordaje. Una prueba recorre las tres balizas mediante los controles de caminar y saltar, sin cambiar artificialmente la posición del personaje.
+Las 21 pruebas cubren navegación, motores, movimiento a pie a distintas tasas de cuadros, paredes, aterrizaje sobre plataformas, obstrucción de cámara, salto corto/cargado, prevención de saltos repetidos, pausa y ciclo completo de salida y abordaje. Las nuevas pruebas verifican texto Unicode, cola de mensajes, prevención de repeticiones y recuperación de una radio tras una conversación. Una prueba recorre las tres balizas mediante los controles de caminar y saltar, sin cambiar artificialmente la posición del personaje.
 
 Capturas y recorrido gráfico reproducibles:
 
@@ -122,9 +146,12 @@ Capturas y recorrido gráfico reproducibles:
 cargo run --release -- --hidden --portrait --frames 8 --capture screenshots/luma-v03.png
 cargo run --release -- --hidden --walking --frames 8 --capture screenshots/exploracion-v03.png
 cargo run --release -- --hidden --smoke-tour --capture target/recorrido-v03.png
+cargo run --release -- --hidden --radio-preview --pad-preview --frames 8 --capture screenshots/radio-v031.png
+cargo run --release -- --hidden --dialogue-preview --compact --pad-preview --frames 8 --capture screenshots/dialogo-v031.png
+cargo run --release -- --hidden --overview --frames 8 --capture screenshots/mapa-v031.png
 ```
 
-`--smoke-tour` verifica viaje orbital, descenso, salida, circuito a pie con saltos, abordaje y ascenso. Termina con error si no completa el recorrido. `--hidden` necesita igualmente un contexto OpenGL. `--portrait` es una pose de inspección; `--walking` entra directamente a la zona a pie. Se conservan `--lunar`, `--near-moon`, `--planet 1..8`, `--overview`, `--controller-report` y `--flight-check` para revisión.
+`--smoke-tour` verifica viaje orbital, descenso, salida, una conversación completa, circuito a pie con saltos, abordaje y ascenso. Termina con error si no completa el recorrido o el diálogo. `--hidden` necesita igualmente un contexto OpenGL. `--portrait` es una pose de inspección; `--walking` entra directamente a la zona a pie. Se conservan `--lunar`, `--near-moon`, `--planet 1..8`, `--overview`, `--controller-report` y `--flight-check` para revisión. Las opciones de preview muestran las comunicaciones completas; `--compact` comprueba 1280 × 800. `--pad-preview` dibuja símbolos de mando sin simular un dispositivo físico; en una partida normal los avisos siguen el dispositivo utilizado.
 
 ## Código
 
@@ -139,7 +166,12 @@ cargo run --release -- --hidden --smoke-tour --capture target/recorrido-v03.png
 | `src/scene.rs` | Planetas, estrellas y recursos gráficos. |
 | `src/ship.rs` | Transformación compartida de nave y motores. |
 | `src/simulation.rs` | Órbitas, vuelo, piloto automático y colisiones orbitales. |
-| `src/interface.rs` | Ayuda, pausa y diagnóstico de mando. |
+| `src/ui.rs` | Tipografía, paneles y símbolos de botones. |
+| `src/hud.rs` | HUD contextual, retratos, ayuda y pausa. |
+| `src/comms.rs` | Radio, conversaciones, eventos y cola de mensajes. |
+| `assets/fonts/` | Nunito, variantes estáticas y licencia OFL. |
 | `assets/shaders/` | Superficies procedurales e iluminación. |
 
 Tecnología: [raylib](https://www.raylib.com/) y [raylib-rs](https://github.com/raylib-rs/raylib-rs). No se descargan texturas durante el juego.
+
+Tipografía: [Nunito, de The Nunito Project Authors](https://github.com/google/fonts/tree/main/ofl/nunito), bajo SIL Open Font License 1.1. Se incluyen la licencia, el archivo original y variantes estáticas de pesos 600/800 preparadas con FontTools. Las herramientas de preparación no son necesarias para compilar ni jugar.

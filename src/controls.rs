@@ -33,6 +33,7 @@ pub struct Controls {
     pub pad: Option<i32>,
     pub name: String,
     pub disconnected: bool,
+    pub using_gamepad: bool,
 }
 #[derive(Default)]
 pub struct Actions {
@@ -50,6 +51,7 @@ pub struct Actions {
     pub next: i32,
     pub menu_step: i32,
     pub confirm: bool,
+    pub radio_advance: bool,
     pub back: bool,
     pub direct: Option<usize>,
 }
@@ -95,6 +97,69 @@ impl Controls {
             KEY_ONE, KEY_TWO, KEY_THREE, KEY_FOUR, KEY_FIVE, KEY_SIX, KEY_SEVEN, KEY_EIGHT,
             KEY_NINE,
         ];
+        let pad_activity = self.pad.is_some()
+            && (old != self.pad
+                || walk_x != 0.0
+                || walk_y != 0.0
+                || heading.yaw != 0.0
+                || heading.pitch != 0.0
+                || trigger(analog(GAMEPAD_AXIS_LEFT_TRIGGER))
+                    + trigger(analog(GAMEPAD_AXIS_RIGHT_TRIGGER))
+                    > 0.05
+                || [
+                    GAMEPAD_BUTTON_RIGHT_FACE_DOWN,
+                    GAMEPAD_BUTTON_RIGHT_FACE_UP,
+                    GAMEPAD_BUTTON_RIGHT_FACE_LEFT,
+                    GAMEPAD_BUTTON_RIGHT_FACE_RIGHT,
+                    GAMEPAD_BUTTON_MIDDLE_RIGHT,
+                    GAMEPAD_BUTTON_MIDDLE_LEFT,
+                    GAMEPAD_BUTTON_LEFT_FACE_UP,
+                    GAMEPAD_BUTTON_LEFT_FACE_DOWN,
+                    GAMEPAD_BUTTON_LEFT_TRIGGER_1,
+                    GAMEPAD_BUTTON_RIGHT_TRIGGER_1,
+                    GAMEPAD_BUTTON_RIGHT_THUMB,
+                ]
+                .into_iter()
+                .any(pressed));
+        if pad_activity {
+            self.using_gamepad = true;
+        }
+        if self.pad.is_none()
+            || [
+                KEY_W,
+                KEY_A,
+                KEY_S,
+                KEY_D,
+                KEY_E,
+                KEY_Q,
+                KEY_F,
+                KEY_H,
+                KEY_TAB,
+                KEY_SPACE,
+                KEY_ENTER,
+                KEY_ESCAPE,
+                KEY_LEFT,
+                KEY_RIGHT,
+                KEY_UP,
+                KEY_DOWN,
+                KEY_R,
+                KEY_P,
+                KEY_O,
+                KEY_X,
+                KEY_F3,
+                KEY_F12,
+                KEY_LEFT_SHIFT,
+                KEY_LEFT_CONTROL,
+                KEY_LEFT_BRACKET,
+                KEY_RIGHT_BRACKET,
+                KEY_BACKSPACE,
+            ]
+            .into_iter()
+            .any(|k| rl.is_key_pressed(k))
+            || keys.into_iter().any(|k| rl.is_key_pressed(k))
+        {
+            self.using_gamepad = false;
+        }
         Actions {
             walk: crate::astronaut::WalkInput {
                 horizontal: (axis(rl, KEY_D, KEY_A) + walk_x).clamp(-1.0, 1.0),
@@ -140,9 +205,13 @@ impl Controls {
                 pressed(GAMEPAD_BUTTON_LEFT_FACE_UP) || rl.is_key_pressed(KEY_UP),
             ),
             confirm: rl.is_key_pressed(KEY_ENTER) || pressed(GAMEPAD_BUTTON_RIGHT_FACE_DOWN),
+            radio_advance: rl.is_key_pressed(KEY_ENTER) || pressed(GAMEPAD_BUTTON_LEFT_FACE_DOWN),
             back: rl.is_key_pressed(KEY_BACKSPACE) || pressed(GAMEPAD_BUTTON_RIGHT_FACE_RIGHT),
             direct: keys.into_iter().position(|key| rl.is_key_pressed(key)),
         }
+    }
+    pub fn pad_hints(&self) -> bool {
+        self.using_gamepad && self.pad.is_some()
     }
     pub fn report(&self, rl: &RaylibHandle) {
         println!("Mando: {}", self.name);
