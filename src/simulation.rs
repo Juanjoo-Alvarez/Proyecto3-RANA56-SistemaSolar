@@ -176,12 +176,12 @@ impl Default for World {
             velocity: v(0.0, 0.0, 0.0),
             yaw: PI,
             pitch: 0.0,
-            selected: 2,
+            selected: 8,
             autopilot: None,
             visited: [false; 8],
             paused: false,
             thrust: 0.0,
-            message: "Bienvenido, piloto. Explora los ocho planetas.".into(),
+            message: "Prueba lunar: F / Triangulo para viajar a la Luna.".into(),
             message_left: 7.0,
         }
     }
@@ -198,12 +198,12 @@ impl World {
         v(-self.yaw.cos(), 0.0, self.yaw.sin())
     }
     pub fn travel(&mut self, index: usize) {
-        self.selected = index.min(7);
+        self.selected = index.min(8);
         self.autopilot = Some(Autopilot {
             target: self.selected,
             stage: Stage::Ascend,
         });
-        self.notify(format!("Ruta trazada: {}", PLANETS[self.selected].name));
+        self.notify(format!("Ruta trazada: {}", destination_name(self.selected)));
     }
     pub fn notify(&mut self, message: String) {
         self.message = message;
@@ -215,9 +215,9 @@ impl World {
         self.visited = visited;
     }
     pub fn target_distance(&self) -> f32 {
-        (length(self.position - PLANETS[self.selected].position(self.time))
-            - PLANETS[self.selected].radius)
-            .max(0.0)
+        (length(self.position - destination_position(self.selected, self.time))
+            - destination_radius(self.selected))
+        .max(0.0)
     }
     pub fn update(&mut self, input: Input, dt: f32) {
         let dt = dt.clamp(0.0, 0.05);
@@ -239,8 +239,13 @@ impl World {
         }
         desired *= if input.boost { 95.0 } else { 30.0 };
         if let Some(mut pilot) = self.autopilot {
-            let target = PLANETS[pilot.target].position(self.time);
-            let approach = target + v(0.0, 4.0, PLANETS[pilot.target].radius + 12.0);
+            let target = destination_position(pilot.target, self.time);
+            let approach = target
+                + v(
+                    0.0,
+                    4.0,
+                    destination_radius(pilot.target) + if pilot.target == 8 { 6.0 } else { 12.0 },
+                );
             let waypoint = match pilot.stage {
                 Stage::Ascend => v(self.position.x, 42.0, self.position.z),
                 Stage::Cruise => v(approach.x, 42.0, approach.z),
@@ -259,7 +264,7 @@ impl World {
                         desired = v(0.0, 0.0, 0.0);
                         self.notify(format!(
                             "Llegada a {}. Control manual listo.",
-                            PLANETS[pilot.target].name
+                            destination_name(pilot.target)
                         ));
                     }
                 }
@@ -326,6 +331,28 @@ pub fn moon_position(time: f32) -> Vector3 {
         )
 }
 
+pub fn destination_name(index: usize) -> &'static str {
+    if index == 8 {
+        "LUNA"
+    } else {
+        PLANETS[index].name
+    }
+}
+pub fn destination_position(index: usize, time: f32) -> Vector3 {
+    if index == 8 {
+        moon_position(time)
+    } else {
+        PLANETS[index].position(time)
+    }
+}
+pub fn destination_radius(index: usize) -> f32 {
+    if index == 8 {
+        1.25
+    } else {
+        PLANETS[index].radius
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -370,6 +397,19 @@ mod tests {
             assert!(world.visited[target]);
             assert!(world.target_distance() < 19.0);
         }
+    }
+    #[test]
+    fn autopilot_reaches_moon_with_landing_clearance() {
+        let mut world = World::default();
+        world.travel(8);
+        for _ in 0..9000 {
+            world.update(Input::default(), 1.0 / 60.0);
+            if world.autopilot.is_none() {
+                break;
+            }
+        }
+        assert!(world.autopilot.is_none());
+        assert!(crate::expedition::Expedition::default().can_land(&world));
     }
     #[test]
     fn manual_input_cancels_autopilot_and_pause_freezes_simulation() {

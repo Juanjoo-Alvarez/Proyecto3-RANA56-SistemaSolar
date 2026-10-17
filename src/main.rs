@@ -1,3 +1,7 @@
+mod controls;
+mod expedition;
+mod interface;
+mod lunar;
 mod scene;
 mod simulation;
 
@@ -11,6 +15,10 @@ struct Options {
     overview: bool,
     destination: Option<usize>,
     hidden: bool,
+    lunar: bool,
+    near_moon: bool,
+    controller_report: bool,
+    smoke_tour: bool,
 }
 fn options() -> Result<Options, String> {
     let mut opts = Options {
@@ -19,6 +27,10 @@ fn options() -> Result<Options, String> {
         overview: false,
         destination: None,
         hidden: false,
+        lunar: false,
+        near_moon: false,
+        controller_report: false,
+        smoke_tour: false,
     };
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -37,6 +49,10 @@ fn options() -> Result<Options, String> {
             "--capture" => opts.capture = Some(args.next().ok_or("Falta ruta de captura")?.into()),
             "--overview" => opts.overview = true,
             "--hidden" => opts.hidden = true,
+            "--lunar" => opts.lunar = true,
+            "--near-moon" => opts.near_moon = true,
+            "--controller-report" => opts.controller_report = true,
+            "--smoke-tour" => opts.smoke_tour = true,
             "--planet" => {
                 let n = args
                     .next()
@@ -50,7 +66,7 @@ fn options() -> Result<Options, String> {
             }
             "--help" => {
                 println!(
-                    "RANA / 56 - Odisea Solar\ncargo run --release\nOpciones: --frames N --capture archivo.png --overview --planet 1..8 --hidden"
+                    "RANA / 56 - Operacion Croac v0.2\ncargo run --release\nOpciones: --frames N --capture archivo.png --overview --planet 1..8 --hidden --lunar --near-moon --controller-report --smoke-tour"
                 );
                 std::process::exit(0);
             }
@@ -59,6 +75,9 @@ fn options() -> Result<Options, String> {
     }
     if opts.capture.is_some() && opts.frames.is_none() {
         opts.frames = Some(8);
+    }
+    if opts.smoke_tour {
+        opts.frames = Some(9000);
     }
     Ok(opts)
 }
@@ -75,16 +94,13 @@ fn project_root() -> Result<PathBuf, String> {
     }
     candidates.into_iter().find(|p|p.join("assets/RANA_56.obj").is_file()).ok_or("No se encuentra assets/RANA_56.obj; ejecuta desde proyecto3 o conserva assets junto al ejecutable.".into())
 }
-fn axis(rl: &RaylibHandle, positive: KeyboardKey, negative: KeyboardKey) -> f32 {
-    i32::from(rl.is_key_down(positive)) as f32 - i32::from(rl.is_key_down(negative)) as f32
-}
 fn run() -> Result<(), String> {
     let opts = options()?;
     let root = project_root()?;
     let mut builder = raylib::init();
     builder
         .size(1440, 900)
-        .title("RANA-56 | Odisea Solar - Proyecto 3")
+        .title("RANA-56 | Operacion Croac v0.2 - Proyecto 3")
         .resizable()
         .msaa_4x()
         .log_level(TraceLogLevel::LOG_WARNING);
@@ -92,10 +108,22 @@ fn run() -> Result<(), String> {
         builder.hidden();
     }
     let (mut rl, thread) = builder.build();
-    rl.set_target_fps(60);
+    rl.set_exit_key(None);
+    rl.set_target_fps(if opts.smoke_tour { 0 } else { 60 });
     rl.set_window_min_size(1280, 800);
     let mut assets = scene::Assets::load(&mut rl, &thread, &root)?;
     let mut world = World::default();
+    let mut expedition = expedition::Expedition::default();
+    let mut controls = controls::Controls::default();
+    if opts.lunar {
+        expedition.phase = expedition::Phase::Surface;
+    }
+    if opts.near_moon {
+        world.position = moon_position(0.0) + v(0.0, 4.0, 8.0);
+    }
+    if opts.smoke_tour {
+        world.travel(8);
+    }
     if let Some(index) = opts.destination {
         world.selected = index;
         world.position = PLANETS[index].position(0.0)
@@ -109,7 +137,14 @@ fn run() -> Result<(), String> {
     let mut overview = opts.overview;
     let mut orbits = true;
     let mut help = false;
-    let mut camera = scene::flight_camera(&world);
+    let mut diagnostic = false;
+    let mut menu = 0i32;
+    let mut was_focused = true;
+    let mut camera = if expedition.phase == expedition::Phase::Orbit {
+        scene::flight_camera(&world)
+    } else {
+        lunar::camera(&expedition)
+    };
     let mut frames = 0u32;
     while !rl.window_should_close() {
         use KeyboardKey::*;
@@ -118,56 +153,137 @@ fn run() -> Result<(), String> {
         } else {
             rl.get_frame_time().min(0.05)
         };
-        if rl.is_key_pressed(KEY_TAB) {
-            overview = !overview;
+        let action = controls.read(&rl);
+        if frames == 0 || controls.disconnected {
+            controls.report(&rl);
         }
-        if rl.is_key_pressed(KEY_O) {
-            orbits = !orbits;
+        if opts.controller_report {
+            diagnostic = true;
         }
-        if rl.is_key_pressed(KEY_H) {
-            help = !help;
+        let focused = rl.is_window_focused();
+        if controls.disconnected || (!opts.hidden && was_focused && !focused) {
+            world.paused = true;
         }
-        if rl.is_key_pressed(KEY_P) {
-            world.paused = !world.paused;
-        }
-        if rl.is_key_pressed(KEY_R) {
-            world.reset();
-            camera = scene::flight_camera(&world);
-        }
-        if rl.is_key_pressed(KEY_F) {
-            if world.autopilot.is_some() {
-                world.autopilot = None;
+        was_focused = focused;
+        let mut consumed = false;
+        if action.pause {
+            if help || diagnostic {
+                help = false;
+                diagnostic = false;
             } else {
-                world.travel(world.selected);
+                world.paused = !world.paused;
+                menu = 0;
+            }
+            consumed = true;
+        }
+        if !consumed && (help || diagnostic) {
+            if action.back || (help && action.help) || (diagnostic && action.diagnostic) {
+                help = false;
+                diagnostic = false;
+            }
+            consumed = true;
+        }
+        if !consumed && world.paused {
+            menu = (menu + action.menu_step).rem_euclid(4);
+            if action.back {
+                world.paused = false;
+            }
+            if action.confirm {
+                match menu {
+                    0 => world.paused = false,
+                    1 => {
+                        expedition.restart(&mut world);
+                        world.paused = false;
+                    }
+                    2 => help = true,
+                    _ => break,
+                }
+            }
+            consumed = true;
+        }
+        if !consumed {
+            if action.help {
+                help = true;
+            }
+            if action.diagnostic {
+                diagnostic = true;
+            }
+            if !help && !diagnostic {
+                if action.reset {
+                    expedition.restart(&mut world);
+                }
+                if expedition.phase == expedition::Phase::Orbit {
+                    if action.map {
+                        overview = !overview;
+                    }
+                    if rl.is_key_pressed(KEY_O) {
+                        orbits = !orbits;
+                    }
+                    world.selected = (world.selected as i32 + action.next).rem_euclid(9) as usize;
+                    if action.route {
+                        if world.autopilot.is_some() {
+                            world.autopilot = None;
+                        } else {
+                            world.travel(world.selected);
+                        }
+                    }
+                    if let Some(i) = action.direct {
+                        world.travel(i);
+                    }
+                }
+                if action.interact {
+                    expedition.interact(&mut world);
+                }
             }
         }
-        let keys = [
-            KEY_ONE, KEY_TWO, KEY_THREE, KEY_FOUR, KEY_FIVE, KEY_SIX, KEY_SEVEN, KEY_EIGHT,
-        ];
-        for (i, key) in keys.into_iter().enumerate() {
-            if rl.is_key_pressed(key) {
-                world.travel(i);
+        let mut input = action.flight;
+        if opts.smoke_tour {
+            input = Input::default();
+            match expedition.phase {
+                expedition::Phase::Orbit
+                    if expedition.can_land(&world) && !expedition.completed =>
+                {
+                    expedition.interact(&mut world)
+                }
+                expedition::Phase::Surface => {
+                    let target = expedition
+                        .beacons
+                        .iter()
+                        .position(|b| !*b)
+                        .map_or(expedition::PAD, |i| expedition::BEACONS[i]);
+                    let delta = target - expedition.local.position;
+                    input.thrust = dot(
+                        delta,
+                        v(expedition.local.yaw.sin(), 0.0, expedition.local.yaw.cos()),
+                    ) * 0.2;
+                    input.strafe = dot(delta, expedition.local.right()) * 0.2;
+                    input.vertical = delta.y * 0.2;
+                    if expedition.beacons.iter().all(|b| *b) && expedition.at_pad() {
+                        expedition.interact(&mut world);
+                    }
+                }
+                _ => {}
             }
         }
-        let input = if help {
-            Input::default()
+        let previous_phase = expedition.phase;
+        if !help && !diagnostic && !world.paused && (!consumed || opts.smoke_tour) {
+            expedition.update(&mut world, input, dt);
+        }
+        if previous_phase != expedition.phase {
+            println!("Fase: {:?}", expedition.phase);
+        }
+        let desired = if expedition.phase == expedition::Phase::Orbit {
+            scene::flight_camera(&world)
         } else {
-            Input {
-                thrust: axis(&rl, KEY_W, KEY_S),
-                strafe: axis(&rl, KEY_D, KEY_A),
-                vertical: axis(&rl, KEY_SPACE, KEY_LEFT_CONTROL),
-                yaw: axis(&rl, KEY_LEFT, KEY_RIGHT),
-                pitch: axis(&rl, KEY_UP, KEY_DOWN),
-                boost: rl.is_key_down(KEY_LEFT_SHIFT),
-                brake: rl.is_key_down(KEY_X),
-            }
+            lunar::camera(&expedition)
         };
-        world.update(input, dt);
-        let desired = scene::flight_camera(&world);
+        if previous_phase != expedition.phase || action.interact || action.reset {
+            camera = desired;
+        }
         let smoothing = 1.0 - (-6.0 * dt).exp();
         camera.position = camera.position + (desired.position - camera.position) * smoothing;
         camera.target = camera.target + (desired.target - camera.target) * smoothing;
-        let active_camera = if overview {
+        let active_camera = if overview && expedition.phase == expedition::Phase::Orbit {
             scene::overview_camera()
         } else {
             camera
@@ -175,11 +291,31 @@ fn run() -> Result<(), String> {
         let screenshot = rl.is_key_pressed(KEY_F12);
         {
             let mut d = rl.begin_drawing(&thread);
-            scene::draw_scene(&mut d, &mut assets, &world, active_camera, orbits, overview);
-            scene::draw_hud(&mut d, &world, overview, help);
+            if expedition.phase == expedition::Phase::Orbit {
+                scene::draw_scene(&mut d, &mut assets, &world, active_camera, orbits, overview);
+                scene::draw_hud(&mut d, &world, overview, false);
+            } else {
+                lunar::draw(
+                    &mut d,
+                    &mut assets,
+                    &expedition,
+                    active_camera,
+                    controls.pad.is_some(),
+                );
+            }
+            interface::overlay(
+                &mut d,
+                &controls,
+                &world,
+                &expedition,
+                help,
+                diagnostic,
+                menu,
+            );
         }
         frames += 1;
-        let final_frame = opts.frames.is_some_and(|limit| frames >= limit);
+        let final_frame = opts.frames.is_some_and(|limit| frames >= limit)
+            || (opts.smoke_tour && expedition.completed);
         if screenshot || (final_frame && opts.capture.is_some()) {
             let path = opts
                 .capture
@@ -199,7 +335,13 @@ fn run() -> Result<(), String> {
             break;
         }
     }
-    println!("Sesion terminada: {frames} frames; 8 planetas; nave RANA-56 cargada.");
+    if opts.smoke_tour && !expedition.completed {
+        return Err("La prueba de ida y vuelta no termino".into());
+    }
+    println!(
+        "Sesion terminada: {frames} frames; fase {:?}; balizas {:?}; recorrido completo: {}",
+        expedition.phase, expedition.beacons, expedition.completed
+    );
     Ok(())
 }
 fn main() {

@@ -53,10 +53,10 @@ void main() {
     if(bodyKind==6){albedo=mix(vec3(0.62,0.47,0.27),vec3(0.94,0.85,0.61),0.5+0.25*bands+f*0.25);}
     if(bodyKind==7){albedo=mix(vec3(0.24,0.59,0.64),vec3(0.65,0.90,0.90),0.5+bands*0.05+f*0.2);atmosphere=vec3(0.22,0.60,0.66);}
     if(bodyKind==8){albedo=mix(vec3(0.035,0.13,0.54),vec3(0.16,0.38,0.91),f+bands*0.12);atmosphere=vec3(0.10,0.23,0.70);}
-    vec3 light=normalize(-worldPos);
+    vec3 light=bodyKind==11?normalize(vec3(-0.4,0.8,0.6)):normalize(-worldPos);
     float diffuse=max(dot(n,light),0.0);
     // Relleno artistico suave para leer las superficies incluso en el hemisferio nocturno.
-    float ambient=bodyKind==9?0.50:0.27;
+    float ambient=(bodyKind==9 || bodyKind==11)?0.50:0.27;
     float fill=0.12*max(dot(n,normalize(eyePos-worldPos)),0.0);
     vec3 color=albedo*min(1.0,ambient+(1.0-ambient)*diffuse+fill);
     float rim=pow(1.0-max(dot(n,normalize(eyePos-worldPos)),0.0),3.2);

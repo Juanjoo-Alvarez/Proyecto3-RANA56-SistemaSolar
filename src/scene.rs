@@ -92,8 +92,12 @@ impl Assets {
             rocks,
         })
     }
-    fn kind(&mut self, kind: i32) {
+    pub(crate) fn kind(&mut self, kind: i32) {
         self.shader.set_shader_value(self.kind_loc, kind);
+    }
+    pub(crate) fn prepare(&mut self, camera: Camera3D, time: f32) {
+        self.shader.set_shader_value(self.eye_loc, camera.position);
+        self.shader.set_shader_value(self.time_loc, time);
     }
 }
 
@@ -259,6 +263,22 @@ pub fn draw_scene(
         }
     }
     // Rotulos con ubicaciones alternativas para evitar superposiciones en el mapa.
+    if world.selected == 8
+        && let Some(p) = project(moon_position(world.time) + v(0.0, 3.0, 0.0), camera, w, h)
+        && p.x > 30.0
+        && p.x < (w - 260) as f32
+        && p.y > 220.0
+        && p.y < (h - 180) as f32
+    {
+        d.draw_circle_lines(p.x as i32, p.y as i32, 12.0, ACCENT);
+        d.draw_text(
+            "LUNA / BASE NENUFAR",
+            p.x as i32 + 19,
+            p.y as i32 - 6,
+            14,
+            ACCENT,
+        );
+    }
     let mut labels = Vec::<(i32, i32, i32, i32)>::new();
     if let Some(sun) = project(v(0.0, 0.0, 0.0), camera, w, h) {
         let depth = dot(-camera.position, unit(camera.target - camera.position)).max(0.1);
@@ -392,33 +412,42 @@ pub fn draw_hud(d: &mut RaylibDrawHandle, world: &World, overview: bool, help: b
         15,
         MUTED,
     );
-    d.draw_text("PRIMER CONTACTO  /  v0.1", w - 253, 34, 15, MUTED);
+    d.draw_text("OPERACION CROAC / v0.2", w - 253, 34, 15, MUTED);
     d.draw_text("SOL  /  SISTEMA LOCAL", w - 253, 60, 17, WHITE);
 
     let nav_x = w - 247;
-    panel(d, nav_x, 118, 219, 383);
+    panel(d, nav_x, 118, 219, 407);
     d.draw_text("DESTINOS", nav_x + 17, 134, 18, ACCENT);
-    d.draw_text("1-8: trazar ruta", nav_x + 17, 160, 14, MUTED);
-    for (i, p) in PLANETS.iter().enumerate() {
-        let y = 191 + i as i32 * 36;
+    d.draw_text("L1/R1 elegir | Triangulo", nav_x + 12, 160, 12, MUTED);
+    for (i, color) in PLANETS
+        .iter()
+        .map(|p| p.color)
+        .chain(std::iter::once(ACCENT))
+        .enumerate()
+    {
+        let y = 191 + i as i32 * 35;
         if world.selected == i {
             d.draw_rectangle(nav_x + 8, y - 3, 203, 31, Color::new(25, 52, 62, 255));
         }
         d.draw_text(&format!("{}", i + 1), nav_x + 17, y + 3, 16, MUTED);
-        d.draw_circle(nav_x + 46, y + 11, 4.0, p.color);
+        d.draw_circle(nav_x + 46, y + 11, 4.0, color);
         d.draw_text(
-            p.name,
+            destination_name(i),
             nav_x + 61,
             y + 3,
             16,
             if world.selected == i { WHITE } else { MUTED },
         );
-        if world.visited[i] {
+        if i < 8 && world.visited[i] {
             d.draw_text("+", nav_x + 192, y + 2, 18, ACCENT);
         }
     }
-    let nearest = &PLANETS[world.selected];
-    d.draw_text(nearest.subtitle, 30, h - 174, 16, MUTED);
+    let subtitle = if world.selected == 8 {
+        "LUNA / Descenso disponible / Base Nenufar"
+    } else {
+        PLANETS[world.selected].subtitle
+    };
+    d.draw_text(subtitle, 30, h - 174, 16, MUTED);
     if world.message_left > 0.0 {
         d.draw_rectangle(28, 111, (w - 310).min(760), 35, Color::new(15, 35, 43, 220));
         d.draw_text(&world.message, 42, 121, 15, ACCENT);
@@ -462,7 +491,7 @@ pub fn draw_hud(d: &mut RaylibDrawHandle, world: &World, overview: bool, help: b
     d.draw_text("u/s", 107, h - 88, 15, MUTED);
     d.draw_line(165, h - 123, 165, h - 49, Color::new(45, 68, 82, 255));
     d.draw_text("NAVEGACION", 188, h - 125, 13, MUTED);
-    d.draw_text(nearest.name, 188, h - 101, 25, WHITE);
+    d.draw_text(destination_name(world.selected), 188, h - 101, 25, WHITE);
     d.draw_text(
         &format!("{:.0} u hasta superficie", world.target_distance()),
         188,
