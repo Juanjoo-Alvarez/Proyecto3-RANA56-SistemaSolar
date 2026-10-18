@@ -1,5 +1,6 @@
 mod astronaut;
 mod audio;
+mod cabin;
 mod comms;
 mod controls;
 mod expedition;
@@ -19,6 +20,8 @@ use simulation::*;
 use std::path::PathBuf;
 
 struct Options {
+    cabin: bool,
+    crew_preview: bool,
     frames: Option<u32>,
     capture: Option<PathBuf>,
     overview: bool,
@@ -46,6 +49,8 @@ struct Options {
 }
 fn options() -> Result<Options, String> {
     let mut opts = Options {
+        cabin: false,
+        crew_preview: false,
         frames: None,
         capture: None,
         overview: false,
@@ -74,6 +79,11 @@ fn options() -> Result<Options, String> {
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
+            "--cabin" => opts.cabin = true,
+            "--crew-preview" => {
+                opts.cabin = true;
+                opts.crew_preview = true;
+            }
             "--frames" => {
                 let n = args
                     .next()
@@ -144,7 +154,7 @@ fn options() -> Result<Options, String> {
             }
             "--help" => {
                 println!(
-                    "RANA / 56 - Operacion Croac v0.4.1\ncargo run --release\nOpciones: --frames N --capture archivo.png --overview --planet 1..8 --hidden --lunar --near-moon --controller-report --smoke-tour --flight-check --walking --portrait --radio-preview --dialogue-preview --compact --pad-preview --mercury --smoke-rescue --celebration-preview --celebration-demo --audio-menu-preview --audio-check --mute --no-audio"
+                    "RANA / 56 - Operacion Croac v0.4.2\ncargo run --release\nOpciones: --frames N --capture archivo.png --overview --planet 1..8 --hidden --lunar --near-moon --controller-report --smoke-tour --flight-check --walking --portrait --radio-preview --dialogue-preview --compact --pad-preview --mercury --smoke-rescue --celebration-preview --celebration-demo --audio-menu-preview --audio-check --mute --no-audio --cabin --crew-preview"
                 );
                 std::process::exit(0);
             }
@@ -187,7 +197,7 @@ fn run() -> Result<(), String> {
             if opts.compact { 1280 } else { 1440 },
             if opts.compact { 800 } else { 900 },
         )
-        .title("RANA-56 | Operacion Croac v0.4.1 - Proyecto 3")
+        .title("RANA-56 | Operacion Croac v0.4.2 - Proyecto 3")
         .resizable()
         .msaa_4x()
         .log_level(TraceLogLevel::LOG_WARNING);
@@ -276,7 +286,7 @@ fn run() -> Result<(), String> {
     }
     if opts.walking {
         expedition.phase = expedition::Phase::OnFoot;
-        expedition.local.position.y = 1.2;
+        expedition.local.position.y = ship::GROUND_Y;
     }
     if opts.celebration_preview || opts.celebration_demo {
         expedition.phase = expedition::Phase::Rescue;
@@ -318,8 +328,18 @@ fn run() -> Result<(), String> {
     if opts.audio_menu_preview {
         world.paused = true;
     }
+    if opts.cabin {
+        if opts.crew_preview {
+            expedition.rescue.status = rescue::Status::Complete;
+            expedition.rescue.collectors = [true; 3];
+        }
+        expedition.phase = expedition::Phase::Orbit;
+        expedition.toggle_cabin(&mut world);
+    }
     let mut was_focused = true;
-    let mut camera = if expedition.phase == expedition::Phase::Orbit {
+    let mut camera = if expedition.phase == expedition::Phase::Cabin {
+        expedition.cabin.camera()
+    } else if expedition.phase == expedition::Phase::Orbit {
         scene::flight_camera(&world)
     } else {
         lunar::camera(&expedition)
@@ -448,7 +468,14 @@ fn run() -> Result<(), String> {
                 if action.reset {
                     expedition.restart(&mut world);
                 }
-                if expedition.phase == expedition::Phase::Orbit {
+                if action.cabin && expedition.toggle_cabin(&mut world) {
+                    overview = false;
+                    consumed = true;
+                    if let Some(audio) = &mut soundscape {
+                        audio.ui_confirm(&audio_settings);
+                    }
+                }
+                if !consumed && expedition.phase == expedition::Phase::Orbit {
                     if action.map {
                         overview = !overview;
                     }
@@ -467,7 +494,11 @@ fn run() -> Result<(), String> {
                         world.travel(i);
                     }
                 }
-                if expedition.phase == expedition::Phase::OnFoot {
+                if !consumed && expedition.phase == expedition::Phase::Cabin {
+                    if action.foot_interact {
+                        expedition.cabin.talk(&mut comms);
+                    }
+                } else if !consumed && expedition.phase == expedition::Phase::OnFoot {
                     if action.foot_interact {
                         if expedition.zone == expedition::Zone::Moon
                             && expedition.astronaut.near_terminal()
@@ -477,10 +508,10 @@ fn run() -> Result<(), String> {
                             expedition.interact(&mut world);
                         }
                     }
-                } else if action.interact {
+                } else if !consumed && action.interact {
                     expedition.interact(&mut world);
                 }
-                if action.disembark {
+                if !consumed && action.disembark {
                     expedition.disembark();
                 }
             }
@@ -571,7 +602,9 @@ fn run() -> Result<(), String> {
         if previous_phase != expedition.phase {
             println!("Fase: {:?}", expedition.phase);
         }
-        let desired = if expedition.phase == expedition::Phase::Orbit {
+        let desired = if expedition.phase == expedition::Phase::Cabin {
+            expedition.cabin.camera()
+        } else if expedition.phase == expedition::Phase::Orbit {
             scene::flight_camera(&world)
         } else {
             lunar::camera(&expedition)
@@ -615,7 +648,17 @@ fn run() -> Result<(), String> {
         let screenshot = rl.is_key_pressed(KEY_F12);
         {
             let mut d = rl.begin_drawing(&thread);
-            if expedition.phase == expedition::Phase::Orbit {
+            if expedition.phase == expedition::Phase::Cabin {
+                cabin::draw(
+                    &mut d,
+                    &mut assets,
+                    &expedition.cabin,
+                    active_camera,
+                    &world,
+                    &ui,
+                    &comms,
+                );
+            } else if expedition.phase == expedition::Phase::Orbit {
                 scene::draw_scene(
                     &mut d,
                     &mut assets,

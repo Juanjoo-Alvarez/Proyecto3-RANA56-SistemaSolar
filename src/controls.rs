@@ -37,6 +37,7 @@ pub struct Controls {
 }
 #[derive(Default)]
 pub struct Actions {
+    pub cabin: bool,
     pub flight: Input,
     pub walk: crate::astronaut::WalkInput,
     pub foot_interact: bool,
@@ -122,6 +123,7 @@ impl Controls {
                     GAMEPAD_BUTTON_LEFT_TRIGGER_1,
                     GAMEPAD_BUTTON_RIGHT_TRIGGER_1,
                     GAMEPAD_BUTTON_RIGHT_THUMB,
+                    GAMEPAD_BUTTON_LEFT_THUMB,
                 ]
                 .into_iter()
                 .any(pressed));
@@ -150,6 +152,7 @@ impl Controls {
                 KEY_P,
                 KEY_O,
                 KEY_M,
+                KEY_C,
                 KEY_X,
                 KEY_F3,
                 KEY_F12,
@@ -166,6 +169,7 @@ impl Controls {
             self.using_gamepad = false;
         }
         Actions {
+            cabin: rl.is_key_pressed(KEY_C) || pressed(GAMEPAD_BUTTON_RIGHT_FACE_RIGHT),
             walk: crate::astronaut::WalkInput {
                 horizontal: (axis(rl, KEY_D, KEY_A) + walk_x).clamp(-1.0, 1.0),
                 forward: (axis(rl, KEY_W, KEY_S) - walk_y).clamp(-1.0, 1.0),
@@ -188,7 +192,7 @@ impl Controls {
                 steer_yaw: heading.steer_yaw,
                 steer_pitch: heading.steer_pitch,
                 boost: rl.is_key_down(KEY_LEFT_SHIFT) || down(GAMEPAD_BUTTON_RIGHT_THUMB),
-                brake: rl.is_key_down(KEY_X) || down(GAMEPAD_BUTTON_RIGHT_FACE_RIGHT),
+                brake: rl.is_key_down(KEY_X) || down(GAMEPAD_BUTTON_LEFT_THUMB),
             },
             interact: rl.is_key_pressed(KEY_E) || pressed(GAMEPAD_BUTTON_RIGHT_FACE_DOWN),
             route: rl.is_key_pressed(KEY_F) || pressed(GAMEPAD_BUTTON_RIGHT_FACE_UP),

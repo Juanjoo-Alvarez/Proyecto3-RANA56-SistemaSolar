@@ -1,6 +1,6 @@
 use crate::{
     expedition::*,
-    scene::{self, ACCENT, Assets},
+    scene::{ACCENT, Assets},
     simulation::*,
 };
 use raylib::prelude::*;
@@ -32,7 +32,12 @@ pub fn camera(e: &Expedition) -> Camera3D {
             52.0,
         )
     } else {
-        scene::flight_camera(&e.local)
+        Camera3D::perspective(
+            e.local.position - e.local.forward() * 23.0 + v(0.0, 11.0, 0.0),
+            e.local.position + e.local.forward() * 8.0,
+            v(0.0, 1.0, 0.0),
+            55.0,
+        )
     }
 }
 fn triangle<D: RaylibDraw3D>(d: &mut D, a: Vector3, b: Vector3, c: Vector3, color: Color) {
@@ -236,8 +241,9 @@ pub fn draw(d: &mut RaylibDrawHandle, assets: &mut Assets, e: &Expedition, camer
             }
         }
         assets.kind(11);
-        crate::ship::draw(&mut s, &assets.ship, &e.local, 0.55);
+        crate::ship::draw(&mut s, &assets.ship, &e.local, crate::ship::SURFACE_SCALE);
         if e.astronaut_visible() {
+            crate::ship::boarding_marker(&mut s);
             crate::frog::draw(&mut s, &assets.frog_mesh, &e.astronaut);
         }
     }

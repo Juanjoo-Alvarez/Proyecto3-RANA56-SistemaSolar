@@ -6,8 +6,8 @@ pub const RADIUS: f32 = 0.48;
 const HEIGHT: f32 = 3.25;
 const GRAVITY: f32 = 16.0;
 pub const SPAWN: Vector3 = Vector3 {
-    x: 6.5,
-    y: 0.55,
+    x: 10.5,
+    y: 0.0,
     z: 28.0,
 };
 
@@ -99,13 +99,13 @@ pub const PLATFORMS: [Platform; 8] = [
 pub const SHIP_BLOCK: Platform = Platform {
     center: Vector3 {
         x: 0.0,
-        y: 1.8,
-        z: 28.0,
+        y: crate::ship::GROUND_Y + (1.917976 - 0.62) * 0.5 * crate::ship::SURFACE_SCALE,
+        z: 28.0 + (2.97989 - 2.598609) * 0.5 * crate::ship::SURFACE_SCALE,
     },
     size: Vector3 {
-        x: 7.0,
-        y: 2.5,
-        z: 7.0,
+        x: 7.54 * crate::ship::SURFACE_SCALE,
+        y: 2.537976 * crate::ship::SURFACE_SCALE,
+        z: 5.578499 * crate::ship::SURFACE_SCALE,
     },
 };
 pub const TERMINAL: Platform = Platform {

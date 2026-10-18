@@ -168,7 +168,12 @@ struct Snapshot {
 }
 impl Snapshot {
     fn new(world: &World, e: &Expedition, comms: &Comms, boosting: bool) -> Self {
-        let ship = if e.phase == Phase::Orbit {
+        let astronaut = if e.phase == Phase::Cabin {
+            &e.cabin.captain
+        } else {
+            &e.astronaut
+        };
+        let ship = if matches!(e.phase, Phase::Orbit | Phase::Cabin) {
             world
         } else {
             &e.local
@@ -179,9 +184,9 @@ impl Snapshot {
             celebration: e.rescue.celebration,
             collectors: e.rescue.collectors,
             beacons: e.beacons,
-            grounded: e.astronaut.grounded,
-            position: e.astronaut.position,
-            vertical_speed: e.astronaut.velocity.y,
+            grounded: astronaut.grounded,
+            position: astronaut.position,
+            vertical_speed: astronaut.velocity.y,
             speed: length(ship.velocity),
             boosting,
             overheats: e.rescue.overheats,
@@ -244,8 +249,8 @@ impl EventTracker {
                 events.push(Cue::Brake);
                 self.brake_cooldown = 0.8;
             }
-            if now.phase == Phase::OnFoot
-                && old.phase == Phase::OnFoot
+            if matches!(now.phase, Phase::OnFoot | Phase::Cabin)
+                && old.phase == now.phase
                 && now.overheats == old.overheats
             {
                 if old.grounded && !now.grounded && now.vertical_speed > 0.5 {
@@ -391,7 +396,7 @@ impl<'a> Track<'a> {
 }
 
 fn environment_track(e: &Expedition) -> usize {
-    if e.phase == Phase::Orbit {
+    if matches!(e.phase, Phase::Orbit | Phase::Cabin) {
         0
     } else if e.zone == Zone::Moon {
         1
@@ -533,7 +538,7 @@ impl<'a> Soundscape<'a> {
         } else {
             1.0
         };
-        let ship = if e.phase == Phase::Orbit {
+        let ship = if matches!(e.phase, Phase::Orbit | Phase::Cabin) {
             world
         } else {
             &e.local
@@ -611,6 +616,30 @@ impl<'a> Soundscape<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cabin_uses_space_music_and_footsteps_without_surface_or_flight_cues() {
+        let mut e = Expedition {
+            phase: Phase::Cabin,
+            zone: Zone::Mercury,
+            ..Default::default()
+        };
+        let world = World::default();
+        let comms = Comms::default();
+        e.rescue.heat = 99.0;
+        assert_eq!(environment_track(&e), 0);
+        let mut tracker = EventTracker::default();
+        tracker.observe(&world, &e, &comms, false, false, 1.0 / 60.0);
+        e.cabin.captain.position.x += 1.6;
+        let events = tracker.observe(&world, &e, &comms, true, false, 1.0 / 60.0);
+        assert_eq!(events.iter().collect::<Vec<_>>(), vec![Cue::Step]);
+        e.phase = Phase::Orbit;
+        assert_eq!(
+            tracker
+                .observe(&world, &e, &comms, false, false, 1.0 / 60.0)
+                .count,
+            0
+        );
+    }
     fn observe(tracker: &mut EventTracker, e: &Expedition, paused: bool) -> Vec<Cue> {
         tracker
             .observe(&World::default(), e, &Comms::default(), false, paused, 0.05)

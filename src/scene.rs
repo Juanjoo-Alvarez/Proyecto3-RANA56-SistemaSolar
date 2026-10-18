@@ -111,8 +111,8 @@ impl Assets {
 
 pub fn flight_camera(world: &World) -> Camera3D {
     Camera3D::perspective(
-        world.position - world.forward() * 14.0 + v(0.0, 6.0, 0.0) + world.right() * 3.3,
-        world.position + world.forward() * 20.0 + v(0.0, 1.0, 0.0),
+        world.position - world.forward() * 2.2 + v(0.0, 0.85, 0.0) + world.right() * 0.35,
+        world.position + world.forward() * 4.0 + v(0.0, 0.15, 0.0),
         v(0.0, 1.0, 0.0),
         55.0,
     )
@@ -242,7 +242,7 @@ pub fn draw_scene(
             Color::WHITE,
         );
         assets.kind(9);
-        crate::ship::draw(&mut space, &assets.ship, world, 0.38);
+        crate::ship::draw(&mut space, &assets.ship, world, crate::ship::ORBIT_SCALE);
     }
     // Rotulos con ubicaciones alternativas para evitar superposiciones en el mapa.
     if world.selected == 8

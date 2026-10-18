@@ -1,5 +1,16 @@
 # Historial de versiones
 
+## 0.4.2 — Proporciones e interior de la nave
+
+- Escala orbital reducida y cámara cercana: los planetas superan ampliamente a la nave.
+- Nave cuatro veces mayor que antes en superficie; colisiones, cámara, estacionamiento y punto de abordaje adaptados.
+- Círculo/C entra al interior desde órbita y vuelve al pilotaje. La nave queda detenida y cancela su ruta.
+- Cubierta 3D transitable con ocho puestos; Brasa ocupa el suyo al completar su rescate y permite conversar.
+- Freno del mando en L3; teclado X. Sonido de pasos interior y música orbital sin motores.
+- Se conservan la música y el saludo de Brasa aprobados; los próximos saludos se adaptarán a cada especie y tamaño.
+- 39 pruebas automatizadas y Clippy. Pendiente revisión visual y con mando de esta compilación: no se autorizó ejecutar el juego.
+- Carpeta local `dist/RANA56-v0.4.2`, sin ZIP propios.
+
 ## 0.4.1 — Música espacial y choque de patas
 
 - Cuatro composiciones originales para órbita, Luna, Mercurio y rescate, con un motivo musical compartido.

@@ -30,6 +30,7 @@ pub const TRANSITION_SECONDS: f32 = 3.5;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Phase {
     Orbit,
+    Cabin,
     Landing,
     Surface,
     Disembark,
@@ -45,6 +46,7 @@ pub enum Zone {
     Mercury,
 }
 pub struct Expedition {
+    pub cabin: crate::cabin::Cabin,
     pub zone: Zone,
     pub rescue: crate::rescue::Rescue,
     pub phase: Phase,
@@ -58,6 +60,7 @@ pub struct Expedition {
 impl Default for Expedition {
     fn default() -> Self {
         Self {
+            cabin: crate::cabin::Cabin::default(),
             zone: Zone::Moon,
             rescue: crate::rescue::Rescue::default(),
             phase: Phase::Orbit,
@@ -78,6 +81,26 @@ fn surface_ship() -> World {
     }
 }
 impl Expedition {
+    pub fn toggle_cabin(&mut self, orbit: &mut World) -> bool {
+        match self.phase {
+            Phase::Orbit => {
+                orbit.velocity = Vector3::zero();
+                orbit.steering = Vector2::zero();
+                orbit.thrust = 0.0;
+                orbit.autopilot = None;
+                if self.rescue.thermal_shield() {
+                    self.cabin.recruit(0);
+                }
+                self.phase = Phase::Cabin;
+                true
+            }
+            Phase::Cabin => {
+                self.phase = Phase::Orbit;
+                true
+            }
+            _ => false,
+        }
+    }
     fn reset_astronaut(&mut self) {
         self.astronaut = Astronaut::default();
         self.astronaut.mercury = self.zone == Zone::Mercury;
@@ -102,7 +125,7 @@ impl Expedition {
     pub fn disembark(&mut self) {
         if self.phase == Phase::Surface && self.at_pad() {
             self.local = surface_ship();
-            self.local.position.y = 1.2;
+            self.local.position.y = crate::ship::GROUND_Y;
             self.phase = Phase::Disembark;
             self.progress = 0.0;
             self.reset_astronaut();
@@ -154,6 +177,10 @@ impl Expedition {
         }
     }
     pub fn restart(&mut self, orbit: &mut World) {
+        if self.phase == Phase::Cabin {
+            self.cabin.reset_position();
+            return;
+        }
         if self.phase == Phase::Rescue {
             return;
         }
@@ -176,6 +203,7 @@ impl Expedition {
         }
         match self.phase {
             Phase::Orbit => orbit.update(input, dt),
+            Phase::Cabin => self.cabin.update(walk, dt),
             Phase::Landing | Phase::Launch => {
                 self.progress = (self.progress + dt / TRANSITION_SECONDS).min(1.0);
                 let t = self.progress * self.progress * (3.0 - 2.0 * self.progress);
@@ -201,6 +229,7 @@ impl Expedition {
                             && self.rescue.status == crate::rescue::Status::Aboard
                         {
                             self.rescue.status = crate::rescue::Status::Complete;
+                            self.cabin.recruit(0);
                         }
                         orbit.velocity = v(0.0, 0.0, 0.0);
                         orbit.yaw = 0.0;
@@ -217,7 +246,7 @@ impl Expedition {
                 self.local.thrust = 0.05;
                 self.progress = (self.progress + dt / 1.3).min(1.0);
                 let t = self.progress * self.progress * (3.0 - 2.0 * self.progress);
-                let door = v(3.0, 1.3, 28.0);
+                let door = crate::ship::DOOR;
                 let (from, to) = if self.phase == Phase::Disembark {
                     (door, SPAWN)
                 } else {
@@ -325,6 +354,58 @@ impl Expedition {
 mod tests {
     use super::*;
     #[test]
+    fn cabin_stops_flight_preserves_orbit_and_crew_and_respects_pause() {
+        let mut world = World::default();
+        world.travel(0);
+        world.velocity = v(20.0, 4.0, 6.0);
+        let original = (world.position, world.yaw, world.pitch, world.time);
+        let mut e = Expedition::default();
+        assert!(e.toggle_cabin(&mut world));
+        assert_eq!(e.cabin.count(), 0);
+        assert!(world.autopilot.is_none());
+        for _ in 0..120 {
+            e.update(
+                &mut world,
+                Input {
+                    thrust: 1.0,
+                    ..Default::default()
+                },
+                WalkInput {
+                    forward: 1.0,
+                    ..Default::default()
+                },
+                1.0 / 60.0,
+            );
+        }
+        assert_eq!(
+            (world.position, world.yaw, world.pitch, world.time),
+            original
+        );
+        assert_eq!(world.velocity, Vector3::zero());
+        let saved = e.cabin.captain.position;
+        world.paused = true;
+        e.update(
+            &mut world,
+            Input::default(),
+            WalkInput {
+                horizontal: 1.0,
+                ..Default::default()
+            },
+            0.05,
+        );
+        assert_eq!(e.cabin.captain.position, saved);
+        world.paused = false;
+        assert!(e.toggle_cabin(&mut world));
+        assert_eq!(e.phase, Phase::Orbit);
+        e.rescue.status = crate::rescue::Status::Complete;
+        assert!(e.toggle_cabin(&mut world));
+        assert_eq!(e.cabin.count(), 1);
+        e.restart(&mut world);
+        assert_eq!(e.cabin.count(), 1);
+        e.phase = Phase::OnFoot;
+        assert!(!e.toggle_cabin(&mut world));
+    }
+    #[test]
     fn first_rescue_plays_from_orbit_through_dialogue_and_returns_with_brasa() {
         let mut world = World::default();
         world.travel(0);
@@ -369,6 +450,7 @@ mod tests {
         assert_eq!(e.phase, Phase::Orbit);
         assert_eq!(e.zone, Zone::Mercury);
         assert!(e.rescue.thermal_shield());
+        assert_eq!(e.cabin.count(), 1);
         assert_eq!(e.rescue.overheats, 0);
         assert_eq!(comms.conversations_finished, 1);
         assert!(length(world.position - PLANETS[0].position(world.time)) < 17.0);

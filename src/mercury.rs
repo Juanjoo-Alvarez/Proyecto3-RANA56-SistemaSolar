@@ -130,8 +130,9 @@ pub fn draw(d: &mut RaylibDrawHandle, assets: &mut Assets, e: &Expedition, camer
         );
     }
     assets.kind(11);
-    crate::ship::draw(&mut s, &assets.ship, &e.local, 0.55);
+    crate::ship::draw(&mut s, &assets.ship, &e.local, crate::ship::SURFACE_SCALE);
     if e.astronaut_visible() {
+        crate::ship::boarding_marker(&mut s);
         frog::draw_actor(
             &mut s,
             &assets.frog_mesh,

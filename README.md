@@ -1,6 +1,6 @@
 # RANA / 56 — Operación Croac
 
-**Proyecto 3 · Versión 0.4.1 · Música espacial, efectos y celebración**
+**Proyecto 3 · Versión 0.4.2 · Proporciones e interior de la nave**
 
 Juan Jose Rivas Alvarez · Carnet 24856
 
@@ -8,7 +8,23 @@ Aventura del sistema solar en **Rust y raylib 6.0.0**. Pilota la RANA-56 y explo
 
 ![Estación Girasol y comunicación 3D de Brasa](screenshots/mercurio-v04.png)
 
-## Hotfix 0.4.1: el sonido de la expedición
+## Hotfix 0.4.2: un hogar para la tripulación
+
+En órbita, la nave ahora mide aproximadamente **0.26 unidades de ancho**: incluso Mercurio tiene un diámetro más de **15 veces mayor**. La cámara se acerca a la nave para mantenerla visible. Las distancias del sistema siguen siendo artísticas y jugables.
+
+En la Luna y Mercurio, la RANA-56 mide aproximadamente **16.6 de ancho, 12.3 de largo y 5.6 de alto**, frente a los aproximadamente 3.25 de altura de Luma. Se ajustaron la colisión del casco, la cámara de vuelo en superficie, la altura de estacionamiento y el punto de abordaje. Una marca luminosa señala dónde reunirse con Brasa.
+
+Desde el sistema solar, pulsa **Círculo / C** para entrar a la **cubierta de tripulación en 3D**. La nave se detiene y cancela su ruta automática; su posición y las órbitas se mantienen mientras estás dentro. Pulsa de nuevo **Círculo / C** para volver a pilotar. Para evitar conflictos, el freno del mando pasa a **L3**; en teclado sigue siendo **X**.
+
+- Camina con stick izquierdo / WASD y mueve la cámara con stick derecho / flechas. El interior tiene suelo, paredes, puestos, consola y jardines hidropónicos. El ventanal representa el destino seleccionado.
+- Hay **ocho puestos reservados**, uno por planeta. Luma está a bordo desde el inicio; el contador muestra los tripulantes rescatados.
+- Brasa aparece con su modelo 3D **después de terminar el rescate y regresar a órbita**. Acércate a su puesto de Mercurio y pulsa **Triángulo / E** para conversar. El diálogo conserva los retratos 3D y se avanza con X / Enter.
+- La música orbital continúa dentro; los motores se silencian y los pasos acompañan a Luma. Pausa, volumen, ayuda y desconexión del mando conservan su comportamiento.
+- Por ahora existe un rescate jugable: Brasa. Los otros siete puestos permanecen vacíos y se completarán al añadir las siguientes misiones. El progreso continúa siendo por sesión.
+
+**Saludo de cada especie:** se conserva el choque de patas de Brasa que ya fue probado. Al incorporar nuevas ranas, cada saludo tendrá una puesta en escena propia según su altura, anchura y alcance: agacharse, acercarse o saltar cuando corresponda. Se deben conservar las longitudes de brazos y dedos, y sincronizar el sonido con el contacto; no se reutilizará una animación estirada para todas las tallas.
+
+## Música y efectos de la 0.4.1
 
 La banda sonora original busca una aventura espacial cálida: cuerdas sintéticas, arpa, celesta, flauta y percusión ligera. Un motivo de cuatro notas —**Fa sostenido, La, Mi, Re**— une el viaje y el rescate. Las cuatro piezas duran entre 30 y 65 segundos y cambian de instrumentación según el lugar:
 
@@ -29,13 +45,14 @@ Abre **Options / Esc**, elige **Música** o **Efectos** y usa **cruceta izquierd
 
 La música y los efectos se sintetizaron para este proyecto; los instrumentos son síntesis, no una orquesta grabada. No incluyen audio ni melodías de otros videojuegos. Los WAV y el generador reproducible están incluidos; el juego funciona sin conexión. Si el dispositivo de audio no puede abrirse, se puede seguir jugando.
 
-## Jugar la versión 0.4.1
+## Jugar la versión 0.4.2
 
-La carpeta local **`dist/RANA56-v0.4.1/`** contiene el ejecutable, los recursos y las instrucciones. Cada versión conserva su carpeta independiente.
+La carpeta local **`dist/RANA56-v0.4.2/`** contiene el ejecutable, los recursos y las instrucciones. Cada versión conserva su carpeta independiente.
 
 - **`rana-solar.exe`**: empieza en el sistema solar, con Mercurio seleccionado.
 - **`PrimerRescate.cmd`**: empieza directamente a pie en Mercurio.
 - **`ExplorarLaLuna.cmd`**: entra al circuito lunar de entrenamiento.
+- **`InteriorDeLaNave.cmd`**: empieza en la cubierta con los puestos vacíos; Círculo / C vuelve al sistema solar para comenzar los rescates.
 
 Conserva `assets` junto al ejecutable. Las versiones se publican como [releases de GitHub](https://github.com/Juanjoo-Alvarez/Proyecto3-RANA56-SistemaSolar/releases), sin generar ni adjuntar ZIP propios. Para construir el juego desde GitHub, sigue la sección Compilar.
 
@@ -91,7 +108,8 @@ La carga máxima ejecuta el salto automáticamente y mantener el botón no repit
 | Orientación suave | Stick izquierdo | — |
 | Orientación directa | Stick derecho | Flechas |
 | Turbo | R3 | Shift |
-| Frenar | Círculo | X |
+| Frenar | L3 | X |
+| Entrar al interior / volver a pilotar (en órbita) | Círculo | C |
 | Elegir destino | L1 / R1 | [ / ] |
 | Trazar / cancelar ruta | Triángulo | F |
 | Ruta directa | — | 1–8: planetas; 9: Luna |
@@ -103,7 +121,7 @@ La carga máxima ejecuta el salto automáticamente y mantener el botón no repit
 
 Los sticks orientan la nave y los gatillos impulsan. Los propulsores comparten su transformación con la nave. Desconectar el mando o quitar el foco pausa la partida. Se detectan mandos sin reiniciar, con zona muerta radial del 18 %. Los avisos cambian según el último dispositivo utilizado.
 
-El DualShock 4 se comprobó físicamente en versiones anteriores. No había mando conectado durante la revisión de la 0.4; se verificaron los controles por código y los avisos PlayStation en pantalla. No hay vibración ni gatillos adaptativos.
+El DualShock 4 se comprobó físicamente en versiones anteriores. La nueva asignación Círculo/L3 de la 0.4.2 se revisó por código; falta comprobarla físicamente con el mando. No hay vibración ni gatillos adaptativos.
 
 ## Luna y sistema solar
 
@@ -129,9 +147,9 @@ cargo clippy --release --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-**34 pruebas** verifican vuelo, mandos, propulsores, saltos, colisiones, cámara, comunicaciones Unicode y retorno de la radio. La prueba del rescate recorre desde la órbita hasta el regreso con Brasa, mediante entradas reales de movimiento e interacción: verifica los tres colectores, la conversación, el choque de patas, el abordaje y la recompensa. También se prueban sombra/calor, reintento sin perder progreso y el aumento real del turbo. La 0.4.1 añade verificación de longitud de brazos/dedos, contacto de palmas, continuidad de la celebración, eventos de audio sin repeticiones, mezcla de música y recuperación de preferencias inválidas.
+**39 pruebas** verifican vuelo, mandos, propulsores, saltos, colisiones, cámara, comunicaciones Unicode y retorno de la radio. La prueba del rescate recorre desde la órbita hasta el regreso con Brasa, mediante entradas reales de movimiento e interacción: verifica los tres colectores, la conversación, el choque de patas, el abordaje y la recompensa. También se prueban sombra/calor, reintento sin perder progreso y el aumento real del turbo. La 0.4.1 añade verificación de longitud de brazos/dedos, contacto de palmas, continuidad de la celebración, eventos de audio sin repeticiones, mezcla de música y recuperación de preferencias inválidas.
 
-La compilación de la 0.4.1, las 34 pruebas y Clippy terminaron correctamente. Los 23 WAV se verificaron contra el manifiesto, sin saturación digital. **Queda pendiente probar esta compilación con ventana y dispositivo de audio**, porque no se autorizó su ejecución durante la revisión. Las capturas incluidas corresponden a la 0.4.0 y versiones anteriores.
+La compilación de la 0.4.2, las 39 pruebas y Clippy terminaron correctamente. Las nuevas pruebas comprueban la escala contra los vértices reales del OBJ, la colisión ampliada, el movimiento interior, el registro de tripulantes, la pausa y el regreso a la misma posición orbital, además de pasos y música dentro de la nave. **Queda pendiente la revisión visual de esta compilación y del nuevo mapeo con un mando físico**, porque no se autorizó ejecutar el juego durante la revisión. La música y el choque de patas de la 0.4.1 fueron probados satisfactoriamente por el jugador. Las capturas incluidas corresponden a la 0.4.0 y versiones anteriores.
 
 Comandos para completar la revisión gráfica y de audio y generar nuevas capturas:
 
@@ -142,14 +160,21 @@ cargo run --release -- --hidden --radio-preview --pad-preview --compact --captur
 cargo run --release -- --hidden --audio-check --mute --smoke-rescue --capture target/rescate-completo-v041.png
 cargo run --release -- --hidden --audio-check --mute --smoke-tour --capture target/luna-regresion-v041.png
 cargo run --release -- --hidden --audio-check --audio-menu-preview --compact --capture screenshots/audio-v041.png
+cargo run --release -- --hidden --no-audio --cabin --compact --capture screenshots/interior-vacio-v042.png
+cargo run --release -- --hidden --no-audio --crew-preview --compact --capture screenshots/interior-v042.png
+cargo run --release -- --hidden --no-audio --mercury --compact --capture screenshots/escala-superficie-v042.png
+cargo run --release -- --hidden --no-audio --planet 1 --compact --capture screenshots/escala-orbita-v042.png
 ```
 
 `--smoke-rescue` prueba gráficamente el rescate completo; `--smoke-tour` comprueba el recorrido lunar y su conversación. Ambos usan los controles de caminar y saltar, sin teletransportar al jugador para completar objetivos. Terminan con error si no completan la misión o la conversación. `--hidden` también necesita OpenGL. `--audio-check` exige que el dispositivo se abra y todos los sonidos carguen correctamente; `--mute` silencia esa ejecución sin guardar una preferencia; `--no-audio` permite probar sin dispositivo. `--celebration-demo` reproduce la animación completa y su sonido durante seis segundos. `--celebration-preview` es una pose de inspección de la cinemática; `--pad-preview` muestra símbolos sin simular un mando conectado.
+
+`--cabin` empieza en el interior con la partida normal. **`--crew-preview` es solo una vista de desarrollo**: marca el rescate de Brasa como completado en esa ejecución para revisar su modelo dentro, sin guardar progreso. El acceso normal con Círculo/C no desbloquea tripulantes.
 
 ## Código y créditos
 
 - `main.rs`: bucle, modos, cámara, controles y pruebas gráficas.
 - `audio.rs`: música, mezcla, efectos por eventos y preferencias.
+- `cabin.rs`: interior 3D, movimiento, puestos y conversación con la tripulación.
 - `assets/audio/`: WAV originales y manifiesto de integridad; detalles en su README.
 - `tools/compose_audio.py`: partitura y síntesis reproducible con Python y NumPy (solo para regenerar).
 - `expedition.rs`: descenso, exploración, celebración, abordaje y ascenso.

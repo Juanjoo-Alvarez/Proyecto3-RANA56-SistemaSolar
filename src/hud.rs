@@ -35,7 +35,9 @@ impl Hud<'_> {
         let (w, h) = (d.get_screen_width() as f32, d.get_screen_height() as f32);
         let ui = self.ui;
         let e = self.e;
-        if e.phase == Phase::Orbit {
+        if e.phase == Phase::Cabin {
+            self.cabin(d, w, h);
+        } else if e.phase == Phase::Orbit {
             self.orbit(d, w, h);
         } else {
             if e.zone == crate::expedition::Zone::Mercury {
@@ -68,7 +70,7 @@ impl Hud<'_> {
             ui.text(d, "Audio silenciado", w - 310.0, h - 22.0, 13.0, MUTED);
         }
         // Una firma discreta; los detalles del dispositivo viven en su diagnostico.
-        ui.text(d, "RANA / 56 · 0.4.1", w - 156.0, h - 22.0, 13.0, MUTED);
+        ui.text(d, "RANA / 56 · 0.4.2", w - 156.0, h - 22.0, 13.0, MUTED);
     }
     fn heading(&self, d: &mut RaylibDrawHandle, title: &str, subtitle: &str) {
         let ui = self.ui;
@@ -76,6 +78,78 @@ impl Hud<'_> {
         leaf(d, Vector2::new(54.0, 65.0), 16.0, MINT);
         ui.text(d, title, 82.0, 40.0, 29.0, CREAM);
         ui.text(d, subtitle, 83.0, 77.0, 15.0, MUTED);
+    }
+    fn cabin(&self, d: &mut RaylibDrawHandle, w: f32, h: f32) {
+        let ui = self.ui;
+        let cabin = &self.e.cabin;
+        self.heading(
+            d,
+            "Hogar entre estrellas",
+            "RANA-56 · Cubierta de tripulación",
+        );
+        ui.panel(d, Rectangle::new(w - 294.0, 25.0, 268.0, 132.0));
+        ui.text(
+            d,
+            "Ninguna rana se queda atrás",
+            w - 278.0,
+            41.0,
+            18.0,
+            CREAM,
+        );
+        ui.text(
+            d,
+            &format!("Rescatados  {} / 8", cabin.count()),
+            w - 278.0,
+            75.0,
+            25.0,
+            MINT,
+        );
+        ui.text(d, "Luma · Capitana a bordo", w - 278.0, 118.0, 17.0, MUTED);
+        ui.text(
+            d,
+            "Nave estacionada · ruta detenida",
+            28.0,
+            129.0,
+            17.0,
+            MUTED,
+        );
+        ui.prompt(
+            d,
+            "Volver a pilotar",
+            Button::Circle,
+            self.gamepad_hints,
+            "C",
+            Vector2::new(w * 0.5, h - 78.0),
+        );
+        ui.text(
+            d,
+            if self.gamepad_hints {
+                "Stick izq · Caminar     Stick der · Cámara"
+            } else {
+                "WASD · Caminar     Flechas · Cámara"
+            },
+            28.0,
+            h - 51.0,
+            17.0,
+            CREAM,
+        );
+        if !self.comms.blocking() && cabin.near_brasa() {
+            ui.prompt(
+                d,
+                "Hablar con Brasa",
+                Button::Triangle,
+                self.gamepad_hints,
+                "E",
+                Vector2::new(
+                    w * 0.5,
+                    if self.comms.active.is_some() {
+                        h - 302.0
+                    } else {
+                        h - 143.0
+                    },
+                ),
+            );
+        }
     }
     fn mercury(&self, d: &mut RaylibDrawHandle, w: f32, h: f32) {
         use crate::rescue::{self, Status};
@@ -464,6 +538,8 @@ impl Hud<'_> {
             &pretty(destination_name(world.selected)),
             "RANA-56 · Navegación orbital",
         );
+        ui.button(d, Button::Circle, pad, "C", 28.0, 354.0);
+        ui.text(d, "Entrar a la nave", 78.0, 360.0, 19.0, CREAM);
         ui.text(
             d,
             &format!("{:.0} u hasta la superficie", world.target_distance()),
@@ -976,7 +1052,7 @@ impl Hud<'_> {
                 "Diálogo: X / Enter. Radio: cruceta abajo / Enter.",
                 "",
                 "Vuelo: R2/L2 impulso, sticks orientar, R3 turbo.",
-                "L1/R1 elegir destino. Cuadrado/Tab para abrir el mapa.",
+                "Círculo/C: interior. L3/X: frenar. Cuadrado/Tab: mapa.",
                 "Pausa: volumen de música/efectos. M: silenciar audio.",
             ];
             for (i, line) in lines.iter().enumerate() {

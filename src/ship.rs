@@ -1,6 +1,16 @@
 use crate::simulation::*;
 use raylib::prelude::*;
 
+// Dos escalas de escena: planetas legibles en órbita y una nave habitable en tierra.
+pub const ORBIT_SCALE: f32 = 0.035;
+pub const SURFACE_SCALE: f32 = 2.2;
+pub const GROUND_Y: f32 = 0.55 + 0.62 * SURFACE_SCALE;
+pub const DOOR: Vector3 = Vector3 {
+    x: 8.5,
+    y: 0.55,
+    z: 28.0,
+};
+
 // Centros de las caras 07_Motores_turquesa del OBJ, antes de escalar/rotar.
 const NOZZLES: [Vector3; 2] = [
     Vector3 {
@@ -75,9 +85,64 @@ pub fn draw<D: RaylibDraw3D>(d: &mut D, model: &Model, world: &World, scale: f32
     }
 }
 
+pub fn boarding_marker<D: RaylibDraw3D>(d: &mut D) {
+    let center = crate::astronaut::SPAWN;
+    let mint = Color::new(125, 238, 202, 255);
+    d.draw_circle3D(
+        center + v(0.0, 0.04, 0.0),
+        1.2,
+        v(1.0, 0.0, 0.0),
+        90.0,
+        mint,
+    );
+    for z in [-1.4, 1.4] {
+        d.draw_cube(center + v(0.0, 0.08, z), 2.0, 0.1, 0.12, mint);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn actual_obj_fits_the_landing_collision_and_has_sensible_scene_scales() {
+        let points: Vec<Vector3> = include_str!("../assets/RANA_56.obj")
+            .lines()
+            .filter_map(|line| line.strip_prefix("v "))
+            .map(|line| {
+                let xyz: Vec<f32> = line
+                    .split_whitespace()
+                    .map(|s| s.parse().unwrap())
+                    .collect();
+                v(xyz[0], xyz[1], xyz[2])
+            })
+            .collect();
+        let width = points.iter().map(|p| p.x).fold(f32::NEG_INFINITY, f32::max)
+            - points.iter().map(|p| p.x).fold(f32::INFINITY, f32::min);
+        assert!(
+            PLANETS
+                .iter()
+                .all(|p| p.radius * 2.0 > width * ORBIT_SCALE * 15.0)
+        );
+        assert!(width * SURFACE_SCALE > 16.0);
+        let block = crate::astronaut::SHIP_BLOCK;
+        let pose = Pose::new(
+            &World {
+                position: v(0.0, GROUND_Y, 28.0),
+                yaw: std::f32::consts::PI,
+                ..Default::default()
+            },
+            SURFACE_SCALE,
+        );
+        for p in points {
+            let p = pose.point(p);
+            let relative = p - block.center;
+            assert!(p.y >= 0.549);
+            assert!(relative.x.abs() <= block.size.x * 0.5 + 0.001);
+            assert!(relative.y.abs() <= block.size.y * 0.5 + 0.001);
+            assert!(relative.z.abs() <= block.size.z * 0.5 + 0.001);
+        }
+        assert!(!block.contains(crate::astronaut::SPAWN, crate::astronaut::RADIUS));
+    }
     #[test]
     fn nose_and_engines_share_orientation_at_all_headings() {
         for yaw in [
@@ -94,7 +159,7 @@ mod tests {
                     position: v(5.0, 7.0, -3.0),
                     ..Default::default()
                 };
-                for scale in [0.38, 0.55] {
+                for scale in [ORBIT_SCALE, SURFACE_SCALE] {
                     let pose = Pose::new(&world, scale);
                     assert!(length(pose.rotate(v(0.0, 0.0, 1.0)) - world.forward()) < 0.00001);
                     // Simetria, distancia al casco y direccion posterior al inclinar.
