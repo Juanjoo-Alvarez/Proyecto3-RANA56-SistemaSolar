@@ -1,4 +1,5 @@
 mod astronaut;
+mod audio;
 mod comms;
 mod controls;
 mod expedition;
@@ -37,6 +38,11 @@ struct Options {
     mercury: bool,
     smoke_rescue: bool,
     celebration_preview: bool,
+    celebration_demo: bool,
+    audio_menu_preview: bool,
+    no_audio: bool,
+    audio_check: bool,
+    mute: bool,
 }
 fn options() -> Result<Options, String> {
     let mut opts = Options {
@@ -59,6 +65,11 @@ fn options() -> Result<Options, String> {
         mercury: false,
         smoke_rescue: false,
         celebration_preview: false,
+        celebration_demo: false,
+        audio_menu_preview: false,
+        no_audio: false,
+        audio_check: false,
+        mute: false,
     };
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -92,6 +103,19 @@ fn options() -> Result<Options, String> {
                 opts.walking = true;
                 opts.celebration_preview = true;
             }
+            "--celebration-demo" => {
+                opts.mercury = true;
+                opts.walking = true;
+                opts.celebration_demo = true;
+            }
+            "--audio-menu-preview" => {
+                opts.audio_menu_preview = true;
+                opts.mercury = true;
+                opts.walking = true;
+            }
+            "--no-audio" => opts.no_audio = true,
+            "--audio-check" => opts.audio_check = true,
+            "--mute" => opts.mute = true,
             "--walking" => opts.walking = true,
             "--radio-preview" => {
                 opts.walking = true;
@@ -120,7 +144,7 @@ fn options() -> Result<Options, String> {
             }
             "--help" => {
                 println!(
-                    "RANA / 56 - Operacion Croac v0.4.0\ncargo run --release\nOpciones: --frames N --capture archivo.png --overview --planet 1..8 --hidden --lunar --near-moon --controller-report --smoke-tour --flight-check --walking --portrait --radio-preview --dialogue-preview --compact --pad-preview --mercury --smoke-rescue --celebration-preview"
+                    "RANA / 56 - Operacion Croac v0.4.1\ncargo run --release\nOpciones: --frames N --capture archivo.png --overview --planet 1..8 --hidden --lunar --near-moon --controller-report --smoke-tour --flight-check --walking --portrait --radio-preview --dialogue-preview --compact --pad-preview --mercury --smoke-rescue --celebration-preview --celebration-demo --audio-menu-preview --audio-check --mute --no-audio"
                 );
                 std::process::exit(0);
             }
@@ -132,6 +156,12 @@ fn options() -> Result<Options, String> {
     }
     if opts.smoke_tour || opts.smoke_rescue {
         opts.frames = Some(9000);
+    }
+    if opts.audio_check && opts.no_audio {
+        return Err("--audio-check requiere un dispositivo de audio".into());
+    }
+    if (opts.audio_check || opts.celebration_demo) && opts.frames.is_none() {
+        opts.frames = Some(360);
     }
     Ok(opts)
 }
@@ -157,7 +187,7 @@ fn run() -> Result<(), String> {
             if opts.compact { 1280 } else { 1440 },
             if opts.compact { 800 } else { 900 },
         )
-        .title("RANA-56 | Operacion Croac v0.4.0 - Proyecto 3")
+        .title("RANA-56 | Operacion Croac v0.4.1 - Proyecto 3")
         .resizable()
         .msaa_4x()
         .log_level(TraceLogLevel::LOG_WARNING);
@@ -175,6 +205,44 @@ fn run() -> Result<(), String> {
     let mut assets = scene::Assets::load(&mut rl, &thread, &root)?;
     let mut portraits = portraits::Portraits::load(&mut rl, &thread)?;
     let ui = ui::Ui::load(&mut rl, &thread, &root)?;
+    let settings_path = root.join("audio-settings.txt");
+    let mut audio_settings = audio::AudioSettings::load(&settings_path);
+    if opts.mute {
+        audio_settings.muted = true;
+    }
+    // El dispositivo vive mas que los streams y sonidos que dependen de el.
+    let audio_device = if opts.no_audio {
+        None
+    } else {
+        match RaylibAudio::init_audio_device() {
+            Ok(device) => Some(device),
+            Err(error) => {
+                eprintln!("Audio no disponible: {error}");
+                None
+            }
+        }
+    };
+    let mut soundscape =
+        audio_device
+            .as_ref()
+            .and_then(|device| match audio::Soundscape::load(device, &root) {
+                Ok(audio) => Some(audio),
+                Err(error) => {
+                    eprintln!("Audio no disponible: {error}");
+                    None
+                }
+            });
+    if opts.audio_check && soundscape.is_none() {
+        return Err("No se pudo inicializar el audio y cargar todos sus recursos".into());
+    }
+    println!(
+        "Audio: {}",
+        if soundscape.is_some() {
+            "música y efectos listos"
+        } else {
+            "desactivado"
+        }
+    );
     let mut comms = comms::Comms::default();
     if opts.dialogue_preview {
         comms.begin_conversation();
@@ -190,13 +258,17 @@ fn run() -> Result<(), String> {
         expedition.zone = expedition::Zone::Mercury;
         expedition.astronaut.mercury = true;
     }
-    if opts.celebration_preview {
+    if opts.celebration_preview || opts.celebration_demo {
         expedition.rescue.collectors = [true; 3];
         expedition.rescue.status = rescue::Status::Celebration;
-        expedition.rescue.celebration = 0.60;
+        expedition.rescue.celebration = if opts.celebration_preview {
+            rescue::HIGH_FIVE_CONTACT
+        } else {
+            0.0
+        };
         expedition.rescue.start = rescue::REFUGE + v(0.0, 0.0, 2.0);
         expedition.astronaut.position = expedition.rescue.start;
-        expedition.astronaut.yaw = std::f32::consts::PI;
+        expedition.rescue.update(&mut expedition.astronaut, 0.0);
     }
     let mut controls = controls::Controls::default();
     if opts.lunar {
@@ -206,7 +278,7 @@ fn run() -> Result<(), String> {
         expedition.phase = expedition::Phase::OnFoot;
         expedition.local.position.y = 1.2;
     }
-    if opts.celebration_preview {
+    if opts.celebration_preview || opts.celebration_demo {
         expedition.phase = expedition::Phase::Rescue;
     }
     if opts.near_moon {
@@ -242,7 +314,10 @@ fn run() -> Result<(), String> {
     let mut orbits = true;
     let mut help = false;
     let mut diagnostic = false;
-    let mut menu = 0i32;
+    let mut menu = if opts.audio_menu_preview { 3 } else { 0i32 };
+    if opts.audio_menu_preview {
+        world.paused = true;
+    }
     let mut was_focused = true;
     let mut camera = if expedition.phase == expedition::Phase::Orbit {
         scene::flight_camera(&world)
@@ -261,6 +336,18 @@ fn run() -> Result<(), String> {
             rl.get_frame_time().min(0.05)
         };
         let action = controls.read(&rl);
+        let mut settings_changed = false;
+        if action.mute {
+            audio_settings.muted = !audio_settings.muted;
+            settings_changed = true;
+            comms.toast = if audio_settings.muted {
+                "Audio silenciado"
+            } else {
+                "Audio activado"
+            }
+            .into();
+            comms.toast_left = 2.0;
+        }
         let previous_phase = expedition.phase;
         let previous_beacons = expedition.beacons;
         if frames == 0 || controls.disconnected {
@@ -276,6 +363,9 @@ fn run() -> Result<(), String> {
         was_focused = focused;
         let mut consumed = false;
         if action.pause {
+            if let Some(audio) = &mut soundscape {
+                audio.ui_confirm(&audio_settings);
+            }
             if help || diagnostic {
                 help = false;
                 diagnostic = false;
@@ -293,11 +383,31 @@ fn run() -> Result<(), String> {
             consumed = true;
         }
         if !consumed && world.paused {
-            menu = (menu + action.menu_step).rem_euclid(4);
+            menu = (menu + action.menu_step).rem_euclid(7);
+            if action.menu_step != 0
+                && let Some(audio) = &mut soundscape
+            {
+                audio.ui_move(&audio_settings);
+            }
+            if action.menu_adjust != 0 && (menu == 3 || menu == 4) {
+                let value = if menu == 3 {
+                    &mut audio_settings.music
+                } else {
+                    &mut audio_settings.effects
+                };
+                *value = (*value + action.menu_adjust as f32 * 0.05).clamp(0.0, 1.0);
+                settings_changed = true;
+                if let Some(audio) = &mut soundscape {
+                    audio.ui_move(&audio_settings);
+                }
+            }
             if action.back {
                 world.paused = false;
             }
             if action.confirm {
+                if let Some(audio) = &mut soundscape {
+                    audio.ui_confirm(&audio_settings);
+                }
                 match menu {
                     0 => world.paused = false,
                     1 => {
@@ -305,10 +415,18 @@ fn run() -> Result<(), String> {
                         world.paused = false;
                     }
                     2 => help = true,
-                    _ => break,
+                    5 => {
+                        audio_settings.muted = !audio_settings.muted;
+                        settings_changed = true;
+                    }
+                    6 => break,
+                    _ => {}
                 }
             }
             consumed = true;
+        }
+        if settings_changed && let Err(error) = audio_settings.save(&settings_path) {
+            eprintln!("No se pudo guardar el volumen: {error}");
         }
         if !consumed && comms.blocking() {
             if action.confirm {
@@ -440,7 +558,7 @@ fn run() -> Result<(), String> {
         {
             expedition.update(&mut world, input, walk, dt);
         }
-        if !opts.celebration_preview {
+        if !opts.celebration_preview && !opts.celebration_demo {
             comms.observe(&expedition, previous_beacons);
         }
         world.thermal_shield = expedition.rescue.thermal_shield();
@@ -482,6 +600,17 @@ fn run() -> Result<(), String> {
         } else {
             camera
         };
+        if let Some(audio) = &mut soundscape {
+            audio.update(
+                &world,
+                &expedition,
+                &comms,
+                &audio_settings,
+                action.flight.boost,
+                world.paused || help || diagnostic,
+                dt,
+            );
+        }
         portraits.update(&mut rl, &thread, &mut assets, &comms);
         let screenshot = rl.is_key_pressed(KEY_F12);
         {
@@ -502,6 +631,8 @@ fn run() -> Result<(), String> {
                 lunar::draw(&mut d, &mut assets, &expedition, active_camera);
             }
             hud::Hud {
+                audio_settings: &audio_settings,
+                audio_available: soundscape.is_some(),
                 portraits: &portraits,
                 ui: &ui,
                 controls: &controls,
@@ -540,6 +671,9 @@ fn run() -> Result<(), String> {
         if final_frame {
             break;
         }
+    }
+    if let Some(audio) = &soundscape {
+        println!("{}", audio.report());
     }
     if opts.smoke_rescue
         && (!expedition.rescue.thermal_shield() || comms.conversations_finished != 1)

@@ -1,5 +1,16 @@
 # Historial de versiones
 
+## 0.4.1 — Música espacial y choque de patas
+
+- Cuatro composiciones originales para órbita, Luna, Mercurio y rescate, con un motivo musical compartido.
+- Diecinueve efectos: nave, exploración, objetivos, radio, croacs y menús.
+- Transiciones de música suaves, volumen que acompaña el vuelo y atenuación durante conversaciones y pausa.
+- Controles separados de música y efectos, silencio global y preferencias persistentes.
+- Brazos de longitud fija y manos rígidas en la celebración; aproximación, contacto breve, rebote y bajada.
+- Palmada y fanfarria sincronizadas una sola vez con el contacto.
+- Generador de audio original y manifiesto de integridad incluidos.
+- 34 pruebas automatizadas; carpeta `dist/RANA56-v0.4.1`, sin ZIP propios.
+
 ## 0.4.0 — Primer rescate y comunicaciones 3D
 
 - Mercurio permite descender y explorar Estación Girasol.

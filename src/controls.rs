@@ -50,6 +50,8 @@ pub struct Actions {
     pub reset: bool,
     pub next: i32,
     pub menu_step: i32,
+    pub menu_adjust: i32,
+    pub mute: bool,
     pub confirm: bool,
     pub radio_advance: bool,
     pub back: bool,
@@ -115,6 +117,8 @@ impl Controls {
                     GAMEPAD_BUTTON_MIDDLE_LEFT,
                     GAMEPAD_BUTTON_LEFT_FACE_UP,
                     GAMEPAD_BUTTON_LEFT_FACE_DOWN,
+                    GAMEPAD_BUTTON_LEFT_FACE_LEFT,
+                    GAMEPAD_BUTTON_LEFT_FACE_RIGHT,
                     GAMEPAD_BUTTON_LEFT_TRIGGER_1,
                     GAMEPAD_BUTTON_RIGHT_TRIGGER_1,
                     GAMEPAD_BUTTON_RIGHT_THUMB,
@@ -145,6 +149,7 @@ impl Controls {
                 KEY_R,
                 KEY_P,
                 KEY_O,
+                KEY_M,
                 KEY_X,
                 KEY_F3,
                 KEY_F12,
@@ -204,6 +209,12 @@ impl Controls {
             ) - i32::from(
                 pressed(GAMEPAD_BUTTON_LEFT_FACE_UP) || rl.is_key_pressed(KEY_UP),
             ),
+            menu_adjust: i32::from(
+                pressed(GAMEPAD_BUTTON_LEFT_FACE_RIGHT) || rl.is_key_pressed(KEY_RIGHT),
+            ) - i32::from(
+                pressed(GAMEPAD_BUTTON_LEFT_FACE_LEFT) || rl.is_key_pressed(KEY_LEFT),
+            ),
+            mute: rl.is_key_pressed(KEY_M),
             confirm: rl.is_key_pressed(KEY_ENTER) || pressed(GAMEPAD_BUTTON_RIGHT_FACE_DOWN),
             radio_advance: rl.is_key_pressed(KEY_ENTER) || pressed(GAMEPAD_BUTTON_LEFT_FACE_DOWN),
             back: rl.is_key_pressed(KEY_BACKSPACE) || pressed(GAMEPAD_BUTTON_RIGHT_FACE_RIGHT),

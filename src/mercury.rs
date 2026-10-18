@@ -158,7 +158,7 @@ pub fn draw(d: &mut RaylibDrawHandle, assets: &mut Assets, e: &Expedition, camer
     if e.rescue.high_five() > 0.9 {
         for i in 0..8 {
             let a = i as f32 * std::f32::consts::TAU / 8.0 + e.local.time;
-            let center = REFUGE + v(0.0, 2.75, 1.0);
+            let center = HIGH_FIVE_POINT;
             s.draw_line3D(
                 center + v(a.cos(), a.sin(), 0.0) * 0.35,
                 center + v(a.cos(), a.sin(), 0.0) * 0.65,

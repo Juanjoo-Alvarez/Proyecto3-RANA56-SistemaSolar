@@ -10,3 +10,5 @@
 *.dll
 *.pdb
 *.ilk
+
+/audio-settings.txt

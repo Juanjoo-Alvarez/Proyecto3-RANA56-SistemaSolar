@@ -13,6 +13,92 @@ pub struct Pose {
     pub talking: bool,
     pub high_five: f32,
 }
+
+const UPPER_ARM: f32 = 0.43;
+const FOREARM: f32 = 0.44;
+const PALM_THICKNESS: f32 = 0.09;
+
+fn body_width(species: Species) -> f32 {
+    if species == Species::Tomato {
+        1.12
+    } else {
+        1.0
+    }
+}
+
+fn world_point(a: &Astronaut, species: Species, bob: f32, p: Vector3) -> Vector3 {
+    let (s, c) = a.yaw.sin_cos();
+    let p = v(p.x * body_width(species), p.y, p.z);
+    a.position + v(0.0, bob, 0.0) + v(c * p.x + s * p.z, p.y, -s * p.x + c * p.z)
+}
+
+struct Arm {
+    shoulder: Vector3,
+    elbow: Vector3,
+    hand: Vector3,
+}
+
+// Resolver en metros, antes de deshacer la anchura del cuerpo, conserva ambos
+// huesos incluso en Brasa. La mezcla mueve la muneca; nunca estira los huesos.
+fn arm_pose(
+    species: Species,
+    side: f32,
+    body_y: f32,
+    airborne: f32,
+    step: f32,
+    salute: f32,
+) -> Arm {
+    let width = body_width(species);
+    let shoulder = v(side * 0.62 * width, body_y + 0.30, 0.0);
+    let resting = v(
+        side * (0.88 + airborne) * width,
+        body_y - 0.39 + airborne * 1.9,
+        0.20 + step * 0.22,
+    );
+    let raised = v(side * 1.11, body_y + 0.90, 0.20);
+    let target = resting + (raised - resting) * salute;
+    let delta = target - shoulder;
+    let distance = length(delta).clamp(0.02, UPPER_ARM + FOREARM - 0.001);
+    let axis = unit(delta);
+    let hand = shoulder + axis * distance;
+    let along =
+        (UPPER_ARM * UPPER_ARM - FOREARM * FOREARM + distance * distance) / (2.0 * distance);
+    let height = (UPPER_ARM * UPPER_ARM - along * along).max(0.0).sqrt();
+    let pole = v(side, -0.18, -0.60);
+    let bend = unit(pole - axis * dot(pole, axis));
+    let elbow = shoulder + axis * along + bend * height;
+    let unscale = |p: Vector3| v(p.x / width, p.y, p.z);
+    Arm {
+        shoulder: unscale(shoulder),
+        elbow: unscale(elbow),
+        hand: unscale(hand),
+    }
+}
+
+fn hand_offset(offset: Vector3, side: f32, salute: f32) -> Vector3 {
+    let (sx, cx) = (-std::f32::consts::FRAC_PI_2 * salute).sin_cos();
+    let (sy, cy) = (-side * std::f32::consts::FRAC_PI_2 * salute).sin_cos();
+    let p = v(
+        offset.x,
+        cx * offset.y - sx * offset.z,
+        sx * offset.y + cx * offset.z,
+    );
+    v(cy * p.x + sy * p.z, p.y, -sy * p.x + cy * p.z)
+}
+
+fn hand_rotation(yaw: f32, side: f32, salute: f32) -> (Vector3, f32) {
+    let (sy, cy) = ((yaw - side * std::f32::consts::FRAC_PI_2 * salute) * 0.5).sin_cos();
+    let (sx, cx) = (-std::f32::consts::FRAC_PI_2 * salute * 0.5).sin_cos();
+    let q = v(cy * sx, sy * cx, -sy * sx);
+    let n = length(q);
+    let axis = if n > 0.000001 {
+        q * (1.0 / n)
+    } else {
+        v(0.0, 1.0, 0.0)
+    };
+    (axis, (2.0 * n.atan2(cy * cx)).to_degrees())
+}
+
 pub fn draw<D: RaylibDraw3D>(d: &mut D, mesh: &Model, a: &Astronaut) {
     draw_actor(d, mesh, a, Species::Tree, &Pose::default());
 }
@@ -58,13 +144,8 @@ pub fn draw_actor<D: RaylibDraw3D>(
         a.animation.cos().abs() * walk * 0.07 + (a.time * 2.0).sin() * 0.025
     } else {
         0.0
-    };
-    let base = a.position + v(0.0, bob, 0.0);
-    let local = |p: Vector3| {
-        let (s, c) = a.yaw.sin_cos();
-        let p = v(p.x * if tomato { 1.12 } else { 1.0 }, p.y, p.z);
-        base + v(c * p.x + s * p.z, p.y, -s * p.x + c * p.z)
-    };
+    } * (1.0 - pose.high_five);
+    let local = |p: Vector3| world_point(a, species, bob, p);
     let ball = |d: &mut D, center: Vector3, size: Vector3, color: Color| {
         d.draw_model_ex(
             mesh,
@@ -163,30 +244,34 @@ pub fn draw_actor<D: RaylibDraw3D>(
             );
         }
         let airborne = if !a.grounded { 0.33 } else { 0.0 };
-        let shoulder = v(side * 0.62, body_y + 0.30, 0.0);
-        let mut elbow = v(
-            side * (0.88 + airborne),
-            body_y - 0.03 + airborne,
-            step * 0.16,
-        );
-        let mut hand = v(
-            side * (0.88 + airborne),
-            body_y - 0.39 + airborne * 1.9,
-            0.20 + step * 0.22,
-        );
-        if side == if tomato { 1.0 } else { -1.0 } {
-            elbow = elbow + (v(side * 0.65, 2.35, 0.55) - elbow) * pose.high_five;
-            hand = hand + (v(0.0, 2.75, 1.0) - hand) * pose.high_five;
-        }
+        let salute = if side == if tomato { -1.0 } else { 1.0 } {
+            pose.high_five
+        } else {
+            0.0
+        };
+        let Arm {
+            shoulder,
+            elbow,
+            hand,
+        } = arm_pose(species, side, body_y, airborne, step, salute);
         ball(d, shoulder, v(0.22, 0.22, 0.23), suit);
         limb(d, shoulder, elbow, 0.13, green);
         ball(d, elbow, v(0.17, 0.17, 0.17), blue);
         limb(d, elbow, hand, 0.11, green);
-        ball(d, hand, v(0.20, 0.12, 0.18), orange);
+        let (axis, angle) = hand_rotation(a.yaw, side, salute);
+        d.draw_model_ex(
+            mesh,
+            local(hand),
+            axis,
+            angle,
+            v(0.20, PALM_THICKNESS, 0.18),
+            orange,
+        );
         for finger in -1..=1 {
-            let end = hand + v(finger as f32 * 0.10, -0.03, 0.24);
+            let offset = hand_offset(v(finger as f32 * 0.10, -0.03, 0.24), side, salute);
+            let end = hand + v(offset.x / body_width(species), offset.y, offset.z);
             limb(d, hand, end, 0.035, orange);
-            ball(d, end, v(0.07, 0.045, 0.07), orange);
+            d.draw_model_ex(mesh, local(end), axis, angle, v(0.07, 0.045, 0.07), orange);
         }
         // Franja azul de los costados.
         ball(
@@ -296,4 +381,68 @@ pub fn draw_actor<D: RaylibDraw3D>(
         a.yaw.to_degrees() + 90.0,
         Color::new(142, 224, 235, 70),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn arm_bones_and_fingers_keep_their_lengths_through_every_blend() {
+        for species in [Species::Tree, Species::Tomato] {
+            for side in [-1.0, 1.0] {
+                for yaw in [0.0, 0.73, std::f32::consts::PI, 4.8] {
+                    let mut a = Astronaut::default();
+                    a.yaw = yaw;
+                    a.position = v(12.0, 0.55, -8.0);
+                    for frame in 0..=120 {
+                        let blend = frame as f32 / 120.0;
+                        for (crouch, airborne, step) in
+                            [(0.0, 0.0, 0.0), (0.30, 0.0, 1.0), (0.0, 0.33, -1.0)]
+                        {
+                            let arm = arm_pose(species, side, 1.18 - crouch, airborne, step, blend);
+                            let shoulder = world_point(&a, species, 0.0, arm.shoulder);
+                            let elbow = world_point(&a, species, 0.0, arm.elbow);
+                            let hand = world_point(&a, species, 0.0, arm.hand);
+                            assert!((length(elbow - shoulder) - UPPER_ARM).abs() < 0.00001);
+                            assert!((length(hand - elbow) - FOREARM).abs() < 0.00001);
+                            for finger in -1..=1 {
+                                let rest = v(finger as f32 * 0.10, -0.03, 0.24);
+                                let offset = hand_offset(rest, side, blend);
+                                let end = arm.hand
+                                    + v(offset.x / body_width(species), offset.y, offset.z);
+                                let end = world_point(&a, species, 0.0, end);
+                                assert!((length(end - hand) - length(rest)).abs() < 0.00001);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn both_palms_meet_at_the_effect_point_without_colliding_helmets() {
+        use crate::rescue::{HIGH_FIVE_CONTACT, HIGH_FIVE_POINT, REFUGE, Rescue, Status};
+        let mut r = Rescue::default();
+        let mut a = Astronaut::default();
+        a.position = REFUGE + v(0.0, 0.0, 4.0);
+        r.collectors = [true; 3];
+        assert!(r.interact(&a));
+        r.celebration = HIGH_FIVE_CONTACT;
+        r.update(&mut a, 0.0);
+        assert_eq!(r.status, Status::Celebration);
+        let mut palms = Vec::new();
+        for (actor, species, side) in [(&a, Species::Tree, 1.0), (&r.brasa, Species::Tomato, -1.0)]
+        {
+            let arm = arm_pose(species, side, 1.18, 0.0, 0.0, r.high_five());
+            let hand = world_point(actor, species, 0.0, arm.hand);
+            let normal = hand_offset(v(0.0, 1.0, 0.0), side, r.high_five());
+            let palm = hand + normal * PALM_THICKNESS;
+            assert!(length(palm - HIGH_FIVE_POINT) < 0.00001, "palm {palm:?}");
+            palms.push(palm);
+        }
+        assert!(length(palms[0] - palms[1]) < 0.00001);
+        assert!(length(a.position - r.brasa.position) > 2.0 * 1.035 + 0.20);
+    }
 }

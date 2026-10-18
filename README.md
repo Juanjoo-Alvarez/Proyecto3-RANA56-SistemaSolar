@@ -1,6 +1,6 @@
 # RANA / 56 — Operación Croac
 
-**Proyecto 3 · Versión 0.4.0 · Primer rescate en Mercurio**
+**Proyecto 3 · Versión 0.4.1 · Música espacial, efectos y celebración**
 
 Juan Jose Rivas Alvarez · Carnet 24856
 
@@ -8,9 +8,30 @@ Aventura del sistema solar en **Rust y raylib 6.0.0**. Pilota la RANA-56 y explo
 
 ![Estación Girasol y comunicación 3D de Brasa](screenshots/mercurio-v04.png)
 
-## Jugar la versión 0.4
+## Hotfix 0.4.1: el sonido de la expedición
 
-La carpeta local **`dist/RANA56-v0.4.0/`** contiene el ejecutable, los recursos y las instrucciones. Cada versión conserva su carpeta independiente.
+La banda sonora original busca una aventura espacial cálida: cuerdas sintéticas, arpa, celesta, flauta y percusión ligera. Un motivo de cuatro notas —**Fa sostenido, La, Mi, Re**— une el viaje y el rescate. Las cuatro piezas duran entre 30 y 65 segundos y cambian de instrumentación según el lugar:
+
+| Lugar | Música |
+| --- | --- |
+| Órbita | Arpa, cuerdas suaves y respuestas de flauta. Sube ligeramente de intensidad al acelerar. |
+| Base Nenúfar | Celesta íntima, arpa y espacio entre las notas. |
+| Mercurio | Un pulso más ágil, percusión ligera y sonidos cristalinos. |
+| Rescate | Celebración con flauta, cuerdas y metales sintéticos, sincronizada con el choque de patas. |
+
+Las transiciones se mezclan suavemente. La música baja durante las comunicaciones y la pausa. Hay **19 efectos** para motores, turbo, frenado, descenso/despegue, pasos, salto/carga, contacto con el suelo, colectores, refugio, calor, radio, croacs de cada rana y menús. Los croacs aparecen espaciados durante las frases.
+
+La celebración conserva la longitud de los brazos durante toda la animación. Luma y Brasa se acercan, se colocan lado a lado y juntan las palmas con un contacto breve, rebote y regreso suave. Las manos y dedos giran como piezas rígidas. La palmada se dispara una sola vez en el instante de contacto.
+
+### Ajustar el volumen
+
+Abre **Options / Esc**, elige **Música** o **Efectos** y usa **cruceta izquierda/derecha** o **flechas izquierda/derecha**. Cada paso cambia un 5 %. La fila **Sonido** permite silenciar todo con **X / Enter**; también puedes pulsar **M** durante el juego. Las preferencias se guardan en `audio-settings.txt`, junto al juego. Silenciar conserva la posición de la música.
+
+La música y los efectos se sintetizaron para este proyecto; los instrumentos son síntesis, no una orquesta grabada. No incluyen audio ni melodías de otros videojuegos. Los WAV y el generador reproducible están incluidos; el juego funciona sin conexión. Si el dispositivo de audio no puede abrirse, se puede seguir jugando.
+
+## Jugar la versión 0.4.1
+
+La carpeta local **`dist/RANA56-v0.4.1/`** contiene el ejecutable, los recursos y las instrucciones. Cada versión conserva su carpeta independiente.
 
 - **`rana-solar.exe`**: empieza en el sistema solar, con Mercurio seleccionado.
 - **`PrimerRescate.cmd`**: empieza directamente a pie en Mercurio.
@@ -108,23 +129,29 @@ cargo clippy --release --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-**25 pruebas** verifican vuelo, mandos, propulsores, saltos, colisiones, cámara, comunicaciones Unicode y retorno de la radio. La prueba del rescate recorre desde la órbita hasta el regreso con Brasa, mediante entradas reales de movimiento e interacción: verifica los tres colectores, la conversación, el choque de patas, el abordaje y la recompensa. También se prueban sombra/calor, reintento sin perder progreso y el aumento real del turbo.
+**34 pruebas** verifican vuelo, mandos, propulsores, saltos, colisiones, cámara, comunicaciones Unicode y retorno de la radio. La prueba del rescate recorre desde la órbita hasta el regreso con Brasa, mediante entradas reales de movimiento e interacción: verifica los tres colectores, la conversación, el choque de patas, el abordaje y la recompensa. También se prueban sombra/calor, reintento sin perder progreso y el aumento real del turbo. La 0.4.1 añade verificación de longitud de brazos/dedos, contacto de palmas, continuidad de la celebración, eventos de audio sin repeticiones, mezcla de música y recuperación de preferencias inválidas.
 
-Capturas y recorridos gráficos reproducibles:
+La compilación de la 0.4.1, las 34 pruebas y Clippy terminaron correctamente. Los 23 WAV se verificaron contra el manifiesto, sin saturación digital. **Queda pendiente probar esta compilación con ventana y dispositivo de audio**, porque no se autorizó su ejecución durante la revisión. Las capturas incluidas corresponden a la 0.4.0 y versiones anteriores.
+
+Comandos para completar la revisión gráfica y de audio y generar nuevas capturas:
 
 ```powershell
-cargo run --release -- --hidden --mercury --radio-preview --pad-preview --capture screenshots/mercurio-v04.png
-cargo run --release -- --hidden --celebration-preview --compact --capture screenshots/rescate-v04.png
+cargo run --release -- --hidden --no-audio --mercury --radio-preview --pad-preview --capture screenshots/mercurio-v04.png
+cargo run --release -- --hidden --no-audio --celebration-preview --compact --capture screenshots/celebracion-v041.png
 cargo run --release -- --hidden --radio-preview --pad-preview --compact --capture screenshots/luma-3d-v04.png
-cargo run --release -- --hidden --smoke-rescue --capture target/rescate-completo-v04.png
-cargo run --release -- --hidden --smoke-tour --capture target/luna-regresion-v04.png
+cargo run --release -- --hidden --audio-check --mute --smoke-rescue --capture target/rescate-completo-v041.png
+cargo run --release -- --hidden --audio-check --mute --smoke-tour --capture target/luna-regresion-v041.png
+cargo run --release -- --hidden --audio-check --audio-menu-preview --compact --capture screenshots/audio-v041.png
 ```
 
-`--smoke-rescue` prueba gráficamente el rescate completo; `--smoke-tour` comprueba el recorrido lunar y su conversación. Ambos usan los controles de caminar y saltar, sin teletransportar al jugador para completar objetivos. Terminan con error si no completan la misión o la conversación. `--hidden` también necesita OpenGL. `--celebration-preview` es una pose de inspección de la cinemática; `--pad-preview` muestra símbolos sin simular un mando conectado.
+`--smoke-rescue` prueba gráficamente el rescate completo; `--smoke-tour` comprueba el recorrido lunar y su conversación. Ambos usan los controles de caminar y saltar, sin teletransportar al jugador para completar objetivos. Terminan con error si no completan la misión o la conversación. `--hidden` también necesita OpenGL. `--audio-check` exige que el dispositivo se abra y todos los sonidos carguen correctamente; `--mute` silencia esa ejecución sin guardar una preferencia; `--no-audio` permite probar sin dispositivo. `--celebration-demo` reproduce la animación completa y su sonido durante seis segundos. `--celebration-preview` es una pose de inspección de la cinemática; `--pad-preview` muestra símbolos sin simular un mando conectado.
 
 ## Código y créditos
 
 - `main.rs`: bucle, modos, cámara, controles y pruebas gráficas.
+- `audio.rs`: música, mezcla, efectos por eventos y preferencias.
+- `assets/audio/`: WAV originales y manifiesto de integridad; detalles en su README.
+- `tools/compose_audio.py`: partitura y síntesis reproducible con Python y NumPy (solo para regenerar).
 - `expedition.rs`: descenso, exploración, celebración, abordaje y ascenso.
 - `rescue.rs` / `mercury.rs`: misión, temperatura, Brasa y Estación Girasol.
 - `astronaut.rs` / `frog.rs`: movimiento, colisiones, modelos compartidos y animaciones.

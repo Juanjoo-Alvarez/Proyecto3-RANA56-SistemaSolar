@@ -26,6 +26,28 @@ pub const REFUGE: Vector3 = Vector3 {
     y: 0.0,
     z: -32.0,
 };
+// Fraccion de la cinematica (4.5 s): audio y destello coinciden con las palmas.
+pub const HIGH_FIVE_CONTACT: f32 = 0.56;
+pub const HIGH_FIVE_POINT: Vector3 = Vector3 {
+    x: REFUGE.x,
+    y: 2.08,
+    z: REFUGE.z + 2.20,
+};
+const LUMA_MARK: Vector3 = Vector3 {
+    x: REFUGE.x - 1.20,
+    y: 0.0,
+    z: REFUGE.z + 2.0,
+};
+const BRASA_MARK: Vector3 = Vector3 {
+    x: REFUGE.x + 1.20,
+    y: 0.0,
+    z: REFUGE.z + 2.0,
+};
+
+fn smooth(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
 pub const SHELTERS: [Vector3; 6] = [
     COLLECTORS[0],
     COLLECTORS[1],
@@ -61,6 +83,7 @@ pub struct Rescue {
     pub start: Vector3,
     pub boarding_start: Vector3,
     escort_step: usize,
+    start_yaw: f32,
 }
 impl Default for Rescue {
     fn default() -> Self {
@@ -78,6 +101,7 @@ impl Default for Rescue {
             start: REFUGE,
             boarding_start: REFUGE,
             escort_step: 0,
+            start_yaw: 0.0,
         }
     }
 }
@@ -111,6 +135,7 @@ impl Rescue {
             if self.unlocked() && self.status == Status::Waiting {
                 self.status = Status::Celebration;
                 self.start = a.position;
+                self.start_yaw = a.yaw;
                 self.celebration = 0.0;
             }
             return true;
@@ -120,11 +145,23 @@ impl Rescue {
     pub fn update(&mut self, a: &mut Astronaut, dt: f32) {
         if self.status == Status::Celebration {
             self.celebration = (self.celebration + dt / 4.5).min(1.0);
-            let t = (self.celebration * 3.0).min(1.0);
-            let t = t * t * (3.0 - 2.0 * t);
-            a.position = self.start + (REFUGE + v(0.0, 0.0, 2.0) - self.start) * t;
-            a.yaw = std::f32::consts::PI;
-            a.velocity = Vector3::zero();
+            let approach = (self.celebration / 0.30).min(1.0);
+            let t = smooth(approach);
+            a.position = self.start + (LUMA_MARK - self.start) * t;
+            self.brasa.position = REFUGE + (BRASA_MARK - REFUGE) * t;
+            let yaw = (self.start_yaw + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU)
+                - std::f32::consts::PI;
+            a.yaw = yaw * (1.0 - t);
+            self.brasa.yaw = 0.0;
+            let speed = 6.0 * approach * (1.0 - approach) / (4.5 * 0.30);
+            a.velocity = (LUMA_MARK - self.start) * speed;
+            self.brasa.velocity = (BRASA_MARK - REFUGE) * speed;
+            a.animation += length(a.velocity) * dt * 2.4;
+            self.brasa.animation += length(self.brasa.velocity) * dt * 2.4;
+            a.charging = false;
+            a.charge = 0.0;
+            a.landing = 0.0;
+            a.grounded = true;
             a.time += dt;
             self.brasa.time += dt;
             if self.celebration >= 1.0 {
@@ -174,14 +211,20 @@ impl Rescue {
             return 0.0;
         }
         let t = self.celebration;
-        if t < 0.32 {
+        if t < 0.30 {
             0.0
-        } else if t < 0.52 {
-            (t - 0.32) / 0.20
-        } else if t < 0.72 {
+        } else if t < 0.50 {
+            smooth((t - 0.30) / 0.20) * 0.82
+        } else if t < HIGH_FIVE_CONTACT {
+            0.82 + smooth((t - 0.50) / (HIGH_FIVE_CONTACT - 0.50)) * 0.18
+        } else if t < 0.585 {
             1.0
+        } else if t < 0.65 {
+            1.0 - smooth((t - 0.585) / 0.065) * 0.18
+        } else if t < 0.70 {
+            0.82 + smooth((t - 0.65) / 0.05) * 0.06
         } else {
-            (1.0 - t) / 0.28
+            0.88 * (1.0 - smooth((t - 0.70) / 0.24))
         }
     }
 }
@@ -243,6 +286,40 @@ impl RescuePilot {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn celebration_approaches_contacts_briefly_and_returns_to_escort_without_a_jump() {
+        let mut r = Rescue::default();
+        let mut a = Astronaut::default();
+        a.position = REFUGE + v(0.0, 0.0, 4.0);
+        a.yaw = 2.6;
+        r.collectors = [true; 3];
+        r.interact(&a);
+        let mut contact_frames = 0;
+        let mut previous_luma = a.position;
+        let mut previous_brasa = r.brasa.position;
+        for _ in 0..270 {
+            r.update(&mut a, 1.0 / 60.0);
+            assert!(length(a.position - previous_luma) < 0.10);
+            assert!(length(r.brasa.position - previous_brasa) < 0.10);
+            if r.high_five() >= 0.9999 {
+                contact_frames += 1;
+            }
+            previous_luma = a.position;
+            previous_brasa = r.brasa.position;
+        }
+        assert!(
+            (5..=9).contains(&contact_frames),
+            "contact {contact_frames} frames"
+        );
+        assert_eq!(r.high_five(), 0.0);
+        for _ in 0..3 {
+            r.update(&mut a, 1.0 / 60.0);
+            assert!(length(r.brasa.position - previous_brasa) < 0.10);
+            previous_brasa = r.brasa.position;
+        }
+        assert_eq!(r.status, Status::Escort);
+    }
+
     #[test]
     fn door_requires_every_collector_and_return_unlocks_upgrade_only_at_completion() {
         let mut r = Rescue::default();

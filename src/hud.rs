@@ -8,6 +8,8 @@ use crate::{
 use raylib::prelude::*;
 
 pub struct Hud<'a> {
+    pub audio_settings: &'a crate::audio::AudioSettings,
+    pub audio_available: bool,
     pub ui: &'a Ui,
     pub controls: &'a Controls,
     pub world: &'a World,
@@ -62,8 +64,11 @@ impl Hud<'_> {
         } else if self.world.paused {
             self.pause(d, w, h);
         }
+        if self.audio_settings.muted {
+            ui.text(d, "Audio silenciado", w - 310.0, h - 22.0, 13.0, MUTED);
+        }
         // Una firma discreta; los detalles del dispositivo viven en su diagnostico.
-        ui.text(d, "RANA / 56 · 0.4.0", w - 156.0, h - 22.0, 13.0, MUTED);
+        ui.text(d, "RANA / 56 · 0.4.1", w - 156.0, h - 22.0, 13.0, MUTED);
     }
     fn heading(&self, d: &mut RaylibDrawHandle, title: &str, subtitle: &str) {
         let ui = self.ui;
@@ -732,27 +737,32 @@ impl Hud<'_> {
     }
     fn pause(&self, d: &mut RaylibDrawHandle, w: f32, h: f32) {
         let ui = self.ui;
-        d.draw_rectangle(0, 0, w as i32, h as i32, Color::new(3, 11, 22, 183));
-        let x = w * 0.5 - 254.0;
-        let y = h * 0.5 - 205.0;
-        ui.panel(d, Rectangle::new(x, y, 508.0, 410.0));
+        d.draw_rectangle(0, 0, w as i32, h as i32, Color::new(3, 11, 22, 190));
+        let x = w * 0.5 - 294.0;
+        let y = h * 0.5 - 291.0;
+        ui.panel(d, Rectangle::new(x, y, 588.0, 582.0));
+        leaf(d, Vector2::new(x + 43.0, y + 47.0), 13.0, MINT);
         ui.text(
             d,
-            "Una pausa en la expedición",
-            x + 28.0,
+            "Una pausa entre estrellas",
+            x + 69.0,
             y + 27.0,
-            28.0,
+            29.0,
             CREAM,
         );
         ui.text(
             d,
-            "RANA-56 espera tus instrucciones",
-            x + 28.0,
-            y + 68.0,
+            if self.audio_available {
+                "Ajusta el sonido de tu expedición"
+            } else {
+                "Dispositivo de audio no disponible"
+            },
+            x + 29.0,
+            y + 75.0,
             18.0,
             MUTED,
         );
-        for (i, label) in [
+        let labels = [
             "Continuar",
             if self.e.astronaut_visible() {
                 "Reubicar a Luma"
@@ -760,41 +770,97 @@ impl Hud<'_> {
                 "Reubicar nave"
             },
             "Controles y ayuda",
+            "Música",
+            "Efectos",
+            if self.audio_settings.muted {
+                "Sonido: silenciado"
+            } else {
+                "Sonido: activado"
+            },
             "Salir del juego",
-        ]
-        .iter()
-        .enumerate()
-        {
-            let yy = y + 118.0 + i as f32 * 52.0;
+        ];
+        for (i, label) in labels.iter().enumerate() {
+            let yy = y + 123.0 + i as f32 * 49.0;
             if self.menu == i as i32 {
                 d.draw_rectangle_rounded(
-                    Rectangle::new(x + 21.0, yy - 7.0, 466.0, 43.0),
+                    Rectangle::new(x + 20.0, yy - 7.0, 548.0, 43.0),
                     0.4,
                     8,
                     Color::new(39, 80, 74, 255),
                 );
-                leaf(d, Vector2::new(x + 42.0, yy + 14.0), 8.0, MINT);
+                leaf(d, Vector2::new(x + 42.0, yy + 13.0), 8.0, MINT);
             }
             ui.text(d, label, x + 63.0, yy, 23.0, CREAM);
+            if i == 3 || i == 4 {
+                let value = if i == 3 {
+                    self.audio_settings.music
+                } else {
+                    self.audio_settings.effects
+                };
+                let color = if self.audio_settings.muted {
+                    MUTED
+                } else {
+                    MINT
+                };
+                d.draw_rectangle_rounded(
+                    Rectangle::new(x + 270.0, yy + 10.0, 187.0, 9.0),
+                    0.9,
+                    8,
+                    Color::new(55, 73, 84, 255),
+                );
+                if value > 0.0 {
+                    d.draw_rectangle_rounded(
+                        Rectangle::new(x + 270.0, yy + 10.0, 187.0 * value, 9.0),
+                        0.9,
+                        8,
+                        color,
+                    );
+                }
+                d.draw_circle_v(
+                    Vector2::new(x + 270.0 + 187.0 * value, yy + 14.5),
+                    6.0,
+                    color,
+                );
+                ui.text(
+                    d,
+                    &format!("{:3.0}%", value * 100.0),
+                    x + 477.0,
+                    yy + 1.0,
+                    21.0,
+                    CREAM,
+                );
+            }
         }
+        ui.text(
+            d,
+            if self.gamepad_hints {
+                "Cruceta izquierda / derecha · Volumen"
+            } else {
+                "Flechas izquierda / derecha · Volumen     M · Silenciar"
+            },
+            x + 29.0,
+            y + 481.0,
+            16.0,
+            MUTED,
+        );
         ui.button(
             d,
             Button::Cross,
             self.gamepad_hints,
             "Enter",
             x + 29.0,
-            y + 352.0,
+            y + 525.0,
         );
-        ui.text(d, "Elegir", x + 106.0, y + 357.0, 17.0, MUTED);
+        ui.text(d, "Elegir", x + 106.0, y + 530.0, 17.0, MUTED);
         ui.button(
             d,
             Button::Circle,
             self.gamepad_hints,
             "Esc",
-            x + 273.0,
-            y + 352.0,
+            x + 330.0,
+            y + 525.0,
         );
-        ui.text(d, "Volver", x + 338.0, y + 357.0, 17.0, MUTED);
+        ui.text(d, "Volver", x + 403.0, y + 530.0, 17.0, MUTED);
     }
     fn sheet(&self, d: &mut RaylibDrawHandle, w: f32, h: f32) {
         let ui = self.ui;
@@ -911,7 +977,7 @@ impl Hud<'_> {
                 "",
                 "Vuelo: R2/L2 impulso, sticks orientar, R3 turbo.",
                 "L1/R1 elegir destino. Cuadrado/Tab para abrir el mapa.",
-                "Cuadrado/Q: salir de la nave en H. Share/F3: mando.",
+                "Pausa: volumen de música/efectos. M: silenciar audio.",
             ];
             for (i, line) in lines.iter().enumerate() {
                 ui.text(
