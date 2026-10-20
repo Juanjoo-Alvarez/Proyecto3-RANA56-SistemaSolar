@@ -1,5 +1,13 @@
 # Historial de versiones
 
+## 0.4.3 — Audio ambiental aprobado
+
+- Cinco piezas de ambient espacial y naturaleza sintetizada, con piano suave y descansos largos; capa adicional de tensión gradual por calor.
+- Exploración de 144–160 segundos e interior con pieza propia de 152 segundos. Celebración reducida a 12 segundos.
+- Niveles y registros de efectos más suaves; un croac por mensaje y aviso de calor cada 12 segundos.
+- Se conservan el archivo de palmada y la animación de Brasa.
+- Carpeta `dist/RANA56-v0.4.3`, sin ZIP. Audio aprobado por Juan para publicación.
+
 ## 0.4.2 — Proporciones e interior de la nave
 
 - Escala orbital reducida y cámara cercana: los planetas superan ampliamente a la nave.

@@ -154,7 +154,7 @@ fn options() -> Result<Options, String> {
             }
             "--help" => {
                 println!(
-                    "RANA / 56 - Operacion Croac v0.4.2\ncargo run --release\nOpciones: --frames N --capture archivo.png --overview --planet 1..8 --hidden --lunar --near-moon --controller-report --smoke-tour --flight-check --walking --portrait --radio-preview --dialogue-preview --compact --pad-preview --mercury --smoke-rescue --celebration-preview --celebration-demo --audio-menu-preview --audio-check --mute --no-audio --cabin --crew-preview"
+                    "RANA / 56 - Operacion Croac v0.4.3\ncargo run --release\nOpciones: --frames N --capture archivo.png --overview --planet 1..8 --hidden --lunar --near-moon --controller-report --smoke-tour --flight-check --walking --portrait --radio-preview --dialogue-preview --compact --pad-preview --mercury --smoke-rescue --celebration-preview --celebration-demo --audio-menu-preview --audio-check --mute --no-audio --cabin --crew-preview"
                 );
                 std::process::exit(0);
             }
@@ -197,7 +197,7 @@ fn run() -> Result<(), String> {
             if opts.compact { 1280 } else { 1440 },
             if opts.compact { 800 } else { 900 },
         )
-        .title("RANA-56 | Operacion Croac v0.4.2 - Proyecto 3")
+        .title("RANA-56 | Operacion Croac v0.4.3 - Proyecto 3")
         .resizable()
         .msaa_4x()
         .log_level(TraceLogLevel::LOG_WARNING);

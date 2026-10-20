@@ -70,7 +70,14 @@ impl Hud<'_> {
             ui.text(d, "Audio silenciado", w - 310.0, h - 22.0, 13.0, MUTED);
         }
         // Una firma discreta; los detalles del dispositivo viven en su diagnostico.
-        ui.text(d, "RANA / 56 · 0.4.2", w - 156.0, h - 22.0, 13.0, MUTED);
+        ui.text(
+            d,
+            "RANA / 56 · 0.4.3",
+            w - 200.0,
+            h - 22.0,
+            13.0,
+            MUTED,
+        );
     }
     fn heading(&self, d: &mut RaylibDrawHandle, title: &str, subtitle: &str) {
         let ui = self.ui;

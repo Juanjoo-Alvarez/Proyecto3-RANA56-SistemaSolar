@@ -2,7 +2,7 @@
 
 Run: python tools/compose_audio.py
 No samples, recordings, downloaded instruments, or external encoders are used.
-The score uses a shared F#-A-E-D motif, arranged independently for each location.
+Local ambient audition: slow harmony, soft piano, filtered water and long rests.
 """
 
 from __future__ import annotations
@@ -46,7 +46,15 @@ def tone(kind: str, note: float, duration: float) -> np.ndarray:
     t = np.arange(n, dtype=np.float64) / RATE
     f = hz(note)
     phase = TAU * f * t
-    if kind == "strings":
+    if kind == "piano":
+        # Rounded felt-like attack and mostly fundamental energy; no metallic partials.
+        sound = sum(gain * np.sin(phase * harmonic) * np.exp(-t / decay)
+                    for harmonic, gain, decay in ((1, 1.0, 2.8), (2, 0.18, 1.6), (3, 0.035, 0.8)))
+        sound *= envelope(n, 0.035, min(1.0, duration * 0.35))
+    elif kind == "air":
+        sound = np.sin(phase) + 0.12 * np.sin(phase * 2) + 0.025 * np.sin(phase * 3)
+        sound *= envelope(n, min(3.2, duration * 0.28), min(4.5, duration * 0.4))
+    elif kind == "strings":
         # A small ensemble with gentle detuning and bowed attack, not a saw beep.
         vibrato = 0.008 * np.sin(TAU * 4.6 * t) * (1.0 - np.exp(-3.0 * t))
         sound = np.zeros(n)
@@ -149,102 +157,61 @@ def percussion(kind: str) -> np.ndarray:
     return sound.astype(np.float32) * envelope(n, 0.003, 0.025)
 
 
-# All notes are authored below: no existing song, MIDI, or recorded melody.
-# F# A E D is the crew's four-note call, heard softly in flight and fully at rescue.
-SPACE_A = [
-    [(0, 78, 1.6), (2, 81, 0.9), (3, 88, 1.4), (4.5, 86, 1.2)],
-    [(0, 85, 1.5), (2, 81, 0.8), (3, 78, 2.2)],
-    [(0, 79, 1.2), (1.5, 83, 1.0), (3, 86, 2.3)],
-    [(0, 85, 1.4), (2, 83, 0.7), (3, 81, 2.1)],
-    [(0, 78, 1.0), (1.5, 81, 1.0), (3, 88, 1.0), (4.5, 86, 1.0)],
-    [(0, 83, 1.6), (2, 81, 0.8), (3, 79, 1.8)],
-    [(0, 78, 1.0), (1.5, 79, 1.0), (3, 81, 1.1), (4.5, 86, 1.0)],
-    [(0, 85, 2.2), (3, 81, 1.8)],
-]
-SPACE_B = [
-    [(0, 83, 1.3), (1.5, 86, 1.0), (3, 90, 2.0)],
-    [(0, 88, 1.7), (2.5, 86, 0.8), (4, 83, 1.3)],
-    [(0, 81, 1.1), (1.5, 85, 1.0), (3, 88, 2.2)],
-    [(0, 86, 2.0), (3, 81, 1.0), (4.5, 78, 0.8)],
-    [(0, 79, 1.1), (1.5, 83, 1.2), (3, 86, 2.0)],
-    [(0, 88, 1.2), (1.5, 86, 1.0), (3, 83, 1.0), (4.5, 81, 0.9)],
-    [(0, 79, 1.0), (1.5, 78, 1.0), (3, 76, 2.0)],
-    [(0, 73, 1.2), (1.5, 76, 1.1), (3, 81, 2.0)],
-]
-
-# Root + open chord voicing. Suspensions, added 9ths, and major 7ths leave air.
-HARMONY_A = [
-    (38, [50, 57, 61, 66]), (35, [47, 54, 57, 62]),
-    (31, [43, 50, 54, 59]), (33, [45, 52, 59, 61]),
-    (30, [42, 50, 57, 62]), (28, [40, 47, 54, 55]),
-    (31, [43, 50, 57, 59]), (33, [45, 52, 57, 61]),
-]
-HARMONY_B = [
-    (31, [43, 50, 54, 59]), (35, [47, 54, 57, 62]),
-    (33, [45, 52, 57, 61]), (38, [50, 57, 61, 66]),
-    (28, [40, 47, 54, 55]), (31, [43, 50, 54, 59]),
-    (28, [40, 47, 52, 55]), (33, [45, 52, 59, 61]),
-]
+# Original, unhurried voicings: Dadd9, Gmaj7, Bm7, Asus2.
+HARMONIES = [(50, 57, 64, 66), (43, 54, 57, 62), (47, 54, 57, 62), (45, 52, 59, 64)]
+MUSIC = ("space", "lunar", "mercury", "rescue", "cabin", "tension")
 
 
 def compose(name: str) -> np.ndarray:
-    tempo = {"space": 144, "lunar": 132, "mercury": 160, "rescue": 144}[name]
-    beat = 60.0 / tempo
-    bars = 12 if name == "rescue" else 24
-    output = np.zeros((round(bars * 6 * beat * RATE), 2), np.float32)
-    is_rescue = name == "rescue"
-    for bar in range(bars):
-        section = bar // 8
-        index = bar % 8
-        root, chord = (HARMONY_B if section == 1 and not is_rescue else HARMONY_A)[index]
-        line = (SPACE_B if section == 1 and not is_rescue else SPACE_A)[index]
-        start = bar * 6 * beat
-        # Wider, quieter pads sit behind a close melodic instrument.
-        for j, note in enumerate(chord):
-            add(output, tone("pad", note, 7.4 * beat), start - 0.30,
-                0.030 if name == "mercury" else 0.045, (j - 1.5) * 0.35, True)
-            if name != "lunar" or section == 1:
-                add(output, tone("strings", note + (12 if is_rescue else 0), 6.8 * beat),
-                    start - 0.10, 0.040 if name == "space" else 0.035, (1.5 - j) * 0.25, True)
-        add(output, tone("bass", root, 5.8 * beat), start, 0.12, 0, True)
-        # A breathing 6/8 harp pattern, with a few intentional rests.
-        harp_notes = [chord[0] + 12, chord[2] + 12, chord[1] + 12,
-                      chord[3] + 12, chord[1] + 12, chord[2] + 12]
-        for step, note in enumerate(harp_notes):
-            if name == "lunar" and step in (2, 5):
-                continue
-            add(output, tone("harp", note, 2.6 * beat), start + step * beat,
-                0.047 if step % 3 else 0.057, -0.55 + step * 0.2, True)
-        # Space alternates flute and celesta; Luna favors lower, intimate notes.
-        lead = "flute" if (name == "space" and section == 1) or is_rescue else "celesta"
-        transpose = -12 if name in ("lunar", "mercury") else 0
-        if name == "space" and section == 0:
-            transpose = -12
-        for at, note, length in line:
-            sustain = length * beat
-            if lead == "celesta":
-                sustain += 0.65
-            add(output, tone(lead, note + transpose, sustain), start + at * beat,
-                0.095 if lead == "flute" else 0.10, -0.12 if lead == "flute" else 0.14, True)
-            if is_rescue:
-                add(output, tone("horn", note - 12, length * beat), start + at * beat,
-                    0.055, -0.15, True)
-        # A small answering flute phrase keeps the loop from sounding mechanical.
-        if name in ("space", "lunar") and bar % 4 == 3:
-            for at, note in ((4.0, chord[2] + 12), (5.0, chord[3] + 12)):
-                add(output, tone("flute", note, 0.70 * beat), start + at * beat, 0.042, -0.30, True)
-        if name in ("mercury", "rescue") or (name == "space" and section == 2):
-            add(output, percussion("low"), start, 0.062 if not is_rescue else 0.09, 0, True)
-            add(output, percussion("low"), start + 3 * beat, 0.038, 0.05, True)
-            for step in range(6):
-                add(output, percussion("shaker"), start + (step + 0.5) * beat,
-                    0.012 if step % 3 else 0.020, 0.45, True)
-            if name == "mercury":
-                add(output, percussion("brush"), start + 3 * beat, 0.024, -0.3, True)
-        elif name == "lunar" and bar % 2:
-            add(output, percussion("brush"), start + 3 * beat, 0.012, 0.4, True)
-    # A soft, spacious room; circular delays preserve the musical loop boundary.
-    return room(output, 0.23 if name in ("space", "lunar") else 0.17, True)
+    duration = {"space": 144, "lunar": 160, "mercury": 144, "cabin": 152,
+                "rescue": 12, "tension": 24}[name]
+    n = round(duration * RATE)
+    output = np.zeros((n, 2), np.float32)
+    if name == "rescue":
+        # One short, gentle resolution. No drums, brass, or repeating fanfare.
+        for i, note in enumerate((62, 66, 69, 64, 62)):
+            add(output, tone("piano", note, 5.0), 0.8 + i * 1.15, 0.085, (i-2)*0.12)
+        for j, note in enumerate((50, 57, 62, 66)):
+            add(output, tone("air", note, 10.0), 0.0, 0.034, (j-1.5)*0.32)
+        return room(output, 0.19, False) * envelope(n, 0.6, 2.5)[:, None]
+    if name == "tension":
+        # Low, consonant breathing layer; runtime only introduces it during heat danger.
+        for note, gain in ((38, 0.045), (45, 0.025), (50, 0.018)):
+            for at in (0, 8, 16):
+                add(output, tone("air", note, 12.0), at, gain, 0.0, True)
+        return room(output, 0.10, True)
+    span = duration / 8.0
+    t = np.arange(n, dtype=np.float32) / RATE
+    # Very faint synthesized flowing water / air, no insect chirps or bird calls.
+    for channel in range(2):
+        water = filtered_noise(n, 720 if name == "cabin" else 500, 95)
+        water *= 0.004 * (0.72 + 0.28 * np.sin(TAU*t/duration*(3+channel)))
+        output[:,channel] += water
+    themes = {
+        "space": [(3.0,62),(9.2,69)], "lunar": [(4.0,57),(12.0,64)],
+        "mercury": [(3.8,54),(10.5,62)], "cabin": [(2.0,62),(8.0,66),(13.0,69)],
+    }
+    for section in range(8):
+        chord = HARMONIES[(section + (1 if name == "lunar" else 0)) % 4]
+        start = section * span
+        # Sections 3 and 7 are ambience-only interludes (18-20 s), not endless melody.
+        if section in (3,7):
+            continue
+        for j, note in enumerate(chord[:3]):
+            add(output, tone("air", note, span * 0.94), start + j*0.28,
+                0.027 if name == "cabin" else 0.040, (j-1)*0.50, True)
+        # The second half changes contour and timing instead of replaying a short phrase.
+        if section in (2,6) and name != "cabin":
+            continue
+        for k, (offset, note) in enumerate(themes[name]):
+            if section >= 4:
+                note = chord[(k+1)%len(chord)] + (12 if k == 1 else 0)
+                offset += 1.4
+            add(output, tone("piano", note, 5.8), start + offset,
+                0.11 if name == "cabin" else 0.085, -0.2 + k*0.17, True)
+        if name == "lunar" and section in (1,5):
+            add(output, tone("piano", chord[-1], 6.0), start+span-5.5, 0.035, -0.3, True)
+    return room(output, 0.24 if name != "cabin" else 0.16, True)
 
 
 def swoop(seconds: float, start_hz: float, end_hz: float, noise: float = 0.0) -> np.ndarray:
@@ -284,19 +251,19 @@ def effect(name: str) -> tuple[np.ndarray, bool]:
     t = np.arange(n) / RATE
     if name == "engine":
         # Exact integer cycles at the 2 s boundary, including the modulation.
-        source = 0.50 * np.sin(TAU * 55 * t) + 0.16 * np.sin(TAU * 110 * t)
-        source += 0.045 * np.sin(TAU * 164.5 * t) + 0.035 * filtered_noise(n, 320)
-        source *= 0.93 + 0.07 * np.sin(TAU * 1.5 * t)
+        source = 0.24 * filtered_noise(n, 310, 75) + 0.035 * np.sin(TAU * 110 * t)
+        source *= 0.97 + 0.03 * np.sin(TAU * 0.5 * t)
         add(sound, source, 0, 1.0, 0)
     elif name == "charge":
-        source = (np.sin(TAU * 294 * t) + 0.24 * np.sin(TAU * 440 * t))
-        source *= 0.74 + 0.26 * np.cos(TAU * 3 * t)
+        source = 0.24 * np.sin(TAU * 147 * t) + 0.045 * np.sin(TAU * 220 * t)
+        source += 0.12 * filtered_noise(n, 500, 100)
+        source *= 0.95 + 0.05 * np.cos(TAU * 0.5 * t)
         add(sound, source, 0, 0.38)
     elif name in ("turbo", "brake", "launch"):
         a, b = {"turbo": (105, 260), "brake": (180, 55), "launch": (65, 230)}[name]
         add(sound, swoop(duration - 0.15, a, b, 0.45), 0, 0.35)
         if name != "brake":
-            add(sound, tone("harp", 78, 0.6), duration * 0.5, 0.06, 0.15)
+            add(sound, tone("piano", 62, 0.6), duration * 0.5, 0.06, 0.15)
     elif name in ("step", "foot_land", "land"):
         source = filtered_noise(n, 850 if name == "step" else 560) * np.exp(-t * (45 if name == "step" else 17))
         source += 0.6 * np.sin(TAU * 72 * t) * np.exp(-t * 28)
@@ -304,17 +271,17 @@ def effect(name: str) -> tuple[np.ndarray, bool]:
         add(sound, source, 0, 0.35)
         if name == "land":
             add(sound, swoop(0.65, 90, 44, 0.1), 0.08, 0.18)
-            add(sound, tone("harp", 66, 0.65), 0.4, 0.12, -0.2)
-            add(sound, tone("harp", 69, 0.65), 0.53, 0.09, 0.2)
+            add(sound, tone("piano", 66, 0.65), 0.4, 0.12, -0.2)
+            add(sound, tone("piano", 69, 0.65), 0.53, 0.09, 0.2)
     elif name == "jump":
-        add(sound, swoop(0.34, 250, 560, 0.07), 0, 0.17)
-        add(sound, tone("harp", 78, 0.4), 0.06, 0.12)
+        add(sound, swoop(0.34, 120, 220, 0.07), 0, 0.17)
+        add(sound, tone("piano", 62, 0.4), 0.06, 0.12)
     elif name in ("collector", "unlock", "rescue_success"):
         notes = {"collector": [66, 69, 76, 74], "unlock": [62, 66, 69, 74, 78, 81],
                  "rescue_success": [66, 69, 76, 74, 78, 81, 86]}[name]
         spacing = 0.14 if name != "rescue_success" else 0.25
         for i, note in enumerate(notes):
-            add(sound, tone("celesta", note + (12 if name == "collector" else 0),
+            add(sound, tone("piano", note - 12,
                             min(1.2, duration - i * spacing)), i * spacing, 0.17,
                 -0.3 + 0.6 * i / max(1, len(notes) - 1))
         if name == "rescue_success":
@@ -330,19 +297,19 @@ def effect(name: str) -> tuple[np.ndarray, bool]:
         add(sound, croak(0.32, 215), 0.18, 0.14, -0.15)
         add(sound, croak(0.28, 165), 0.28, 0.12, 0.20)
     elif name in ("luma_talk", "brasa_talk"):
-        add(sound, croak(duration, 290 if name == "luma_talk" else 185), 0, 0.28)
+        add(sound, croak(duration, 220 if name == "luma_talk" else 150), 0, 0.28)
     elif name == "radio_open":
-        add(sound, tone("harp", 78, 0.25), 0, 0.17, -0.12)
-        add(sound, tone("harp", 81, 0.28), 0.12, 0.15, 0.12)
+        add(sound, tone("piano", 62, 0.25), 0, 0.17, -0.12)
+        add(sound, tone("piano", 66, 0.28), 0.12, 0.15, 0.12)
     elif name == "ui_move":
-        add(sound, tone("harp", 78, duration), 0, 0.19)
+        add(sound, tone("piano", 62, duration), 0, 0.19)
     elif name == "ui_confirm":
-        add(sound, tone("celesta", 78, 0.40), 0, 0.17, -0.15)
-        add(sound, tone("celesta", 81, 0.35), 0.10, 0.14, 0.15)
+        add(sound, tone("piano", 62, 0.40), 0, 0.17, -0.15)
+        add(sound, tone("piano", 66, 0.35), 0.10, 0.14, 0.15)
     elif name == "heat_warning":
-        for start in (0.0, 0.30):
-            add(sound, tone("flute", 74, 0.20), start, 0.19)
-            add(sound, tone("flute", 69, 0.20), start + 0.06, 0.10)
+        for start in (0.0,):
+            add(sound, tone("piano", 62, 0.48), start, 0.19)
+            add(sound, tone("piano", 57, 0.40), start + 0.06, 0.10)
     else:
         raise ValueError(name)
     if name not in ("engine", "charge", "step", "luma_talk", "brasa_talk"):
@@ -362,8 +329,12 @@ def save(name: str, samples: np.ndarray, loop: bool, music: bool) -> dict:
     samples -= np.mean(samples, axis=0)
     peak = float(np.max(np.abs(samples)))
     # Music retains headroom for effects; effects are balanced by class in-game.
-    desired_peak = 0.70 if music else (0.40 if name in ("engine", "charge") else 0.60)
-    samples *= desired_peak / max(peak, 0.001)
+    if music:
+        rms = float(np.sqrt(np.mean(samples ** 2)))
+        samples *= min(0.40 / max(peak, 0.001), 0.070 / max(rms, 0.001))
+    else:
+        desired_peak = 0.60 if name == "high_five" else (0.22 if name in ("engine", "charge") else 0.32)
+        samples *= desired_peak / max(peak, 0.001)
     if loop:
         # Tiny circular equal-power overlap only for a residual non-periodic seam.
         seam = float(np.max(np.abs(samples[0] - samples[-1])))
@@ -412,11 +383,11 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     records = []
     if not args.effects_only:
-        for i, name in enumerate(("space", "lunar", "mercury", "rescue")):
+        for i, name in enumerate(MUSIC):
             global RNG
             RNG = np.random.default_rng(24856 + i)
             _CACHE.clear()
-            records.append(save(name, compose(name), True, True))
+            records.append(save(name, compose(name), name != "rescue", True))
     for i, name in enumerate(SFX):
         RNG = np.random.default_rng(248560 + i)
         _CACHE.clear()
@@ -426,7 +397,7 @@ def main() -> None:
     if args.effects_only and manifest.exists():
         records = [r for r in json.loads(manifest.read_text(encoding="utf-8"))["assets"] if r["kind"] == "music"] + records
     manifest.write_text(json.dumps({"generator": "tools/compose_audio.py", "seed": 24856,
-                                    "original_motif": ["F#", "A", "E", "D"], "assets": records}, indent=2) + "\n", encoding="utf-8")
+                                    "direction": "Ambient espacial y naturaleza cosmica - prueba local", "assets": records}, indent=2) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

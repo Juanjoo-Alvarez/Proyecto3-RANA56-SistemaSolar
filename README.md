@@ -1,6 +1,8 @@
 # RANA / 56 — Operación Croac
 
-**Proyecto 3 · Versión 0.4.2 · Proporciones e interior de la nave**
+**Proyecto 3 · 0.4.3 · Audio ambiental**
+
+**Audio aprobado por Juan.** Disponible desde `dist/RANA56-v0.4.3/`; las carpetas anteriores conservan su sonido.
 
 Juan Jose Rivas Alvarez · Carnet 24856
 
@@ -19,25 +21,27 @@ Desde el sistema solar, pulsa **Círculo / C** para entrar a la **cubierta de tr
 - Camina con stick izquierdo / WASD y mueve la cámara con stick derecho / flechas. El interior tiene suelo, paredes, puestos, consola y jardines hidropónicos. El ventanal representa el destino seleccionado.
 - Hay **ocho puestos reservados**, uno por planeta. Luma está a bordo desde el inicio; el contador muestra los tripulantes rescatados.
 - Brasa aparece con su modelo 3D **después de terminar el rescate y regresar a órbita**. Acércate a su puesto de Mercurio y pulsa **Triángulo / E** para conversar. El diálogo conserva los retratos 3D y se avanza con X / Enter.
-- La música orbital continúa dentro; los motores se silencian y los pasos acompañan a Luma. Pausa, volumen, ayuda y desconexión del mando conservan su comportamiento.
+- El piano del interior acompaña la exploración; los motores se silencian y los pasos acompañan a Luma. Pausa, volumen, ayuda y desconexión del mando conservan su comportamiento.
 - Por ahora existe un rescate jugable: Brasa. Los otros siete puestos permanecen vacíos y se completarán al añadir las siguientes misiones. El progreso continúa siendo por sesión.
 
 **Saludo de cada especie:** se conserva el choque de patas de Brasa que ya fue probado. Al incorporar nuevas ranas, cada saludo tendrá una puesta en escena propia según su altura, anchura y alcance: agacharse, acercarse o saltar cuando corresponda. Se deben conservar las longitudes de brazos y dedos, y sincronizar el sonido con el contacto; no se reutilizará una animación estirada para todas las tallas.
 
-## Música y efectos de la 0.4.1
+## Espacio tranquilo y naturaleza cósmica
 
-La banda sonora original busca una aventura espacial cálida: cuerdas sintéticas, arpa, celesta, flauta y percusión ligera. Un motivo de cuatro notas —**Fa sostenido, La, Mi, Re**— une el viaje y el rescate. Las cuatro piezas duran entre 30 y 65 segundos y cambian de instrumentación según el lugar:
+Piano de ataque redondeado, capas armónicas lentas y agua/aire sintetizados muy suaves. No hay percusión continua, flauta aguda ni arpegios rápidos. Las piezas de exploración contienen variaciones en la segunda mitad y dos descansos de 18–20 segundos con solo ambiente.
 
-| Lugar | Música |
-| --- | --- |
-| Órbita | Arpa, cuerdas suaves y respuestas de flauta. Sube ligeramente de intensidad al acelerar. |
-| Base Nenúfar | Celesta íntima, arpa y espacio entre las notas. |
-| Mercurio | Un pulso más ágil, percusión ligera y sonidos cristalinos. |
-| Rescate | Celebración con flauta, cuerdas y metales sintéticos, sincronizada con el choque de patas. |
+| Archivo / lugar | Duración | Diseño |
+| --- | ---: | --- |
+| `space.wav` / órbita | 2:24 | Piano ocasional y armonía abierta con largos descansos. |
+| `lunar.wav` / Luna | 2:40 | Registro más grave y respuestas muy espaciadas. |
+| `mercury.wav` / Mercurio | 2:24 | Timbres cálidos sin percusión constante. |
+| `cabin.wav` / interior | 2:32 | Piano más cercano y ambiente suave de agua. |
+| `rescue.wav` / rescate | 0:12 | Resolución breve con piano, sin fanfarria repetitiva. |
+| `tension.wav` / capa de peligro | 0:24 | Se mezcla muy suavemente al aumentar el calor y desaparece al enfriarse. |
 
-Las transiciones se mezclan suavemente. La música baja durante las comunicaciones y la pausa. Hay **19 efectos** para motores, turbo, frenado, descenso/despegue, pasos, salto/carga, contacto con el suelo, colectores, refugio, calor, radio, croacs de cada rana y menús. Los croacs aparecen espaciados durante las frases.
+Las cinco piezas principales tienen un RMS cercano a -23.1 dBFS (antes, aproximadamente -14 a -16 dBFS). Ese dato describe nivel de señal, no garantiza comodidad auditiva: la valoración final la hará Juan jugando. Las transiciones son más largas y se conservan los controles independientes de volumen.
 
-La celebración conserva la longitud de los brazos durante toda la animación. Luma y Brasa se acercan, se colocan lado a lado y juntan las palmas con un contacto breve, rebote y regreso suave. Las manos y dedos giran como piezas rígidas. La palmada se dispara una sola vez en el instante de contacto.
+Los 19 efectos siguen cubriendo las mismas acciones, pero se suavizaron registros y niveles: motores con menos zumbido tonal, carga menos aguda, pasos y menús discretos. Solo suena un croac por mensaje. El aviso de calor se espacia a 12 segundos; la temperatura sigue visible en la HUD. El archivo de palmada y la animación del choque de patas se conservan.
 
 ### Ajustar el volumen
 
@@ -45,16 +49,16 @@ Abre **Options / Esc**, elige **Música** o **Efectos** y usa **cruceta izquierd
 
 La música y los efectos se sintetizaron para este proyecto; los instrumentos son síntesis, no una orquesta grabada. No incluyen audio ni melodías de otros videojuegos. Los WAV y el generador reproducible están incluidos; el juego funciona sin conexión. Si el dispositivo de audio no puede abrirse, se puede seguir jugando.
 
-## Jugar la versión 0.4.2
+## Jugar la versión 0.4.3
 
-La carpeta local **`dist/RANA56-v0.4.2/`** contiene el ejecutable, los recursos y las instrucciones. Cada versión conserva su carpeta independiente.
+La carpeta local **`dist/RANA56-v0.4.3/`** contiene el ejecutable, los recursos y las instrucciones. Cada versión conserva su carpeta independiente.
 
 - **`rana-solar.exe`**: empieza en el sistema solar, con Mercurio seleccionado.
 - **`PrimerRescate.cmd`**: empieza directamente a pie en Mercurio.
 - **`ExplorarLaLuna.cmd`**: entra al circuito lunar de entrenamiento.
 - **`InteriorDeLaNave.cmd`**: empieza en la cubierta con los puestos vacíos; Círculo / C vuelve al sistema solar para comenzar los rescates.
 
-Conserva `assets` junto al ejecutable. Las versiones se publican como [releases de GitHub](https://github.com/Juanjoo-Alvarez/Proyecto3-RANA56-SistemaSolar/releases), sin generar ni adjuntar ZIP propios. Para construir el juego desde GitHub, sigue la sección Compilar.
+Conserva `assets` junto al ejecutable. Las versiones aprobadas se publican como [releases de GitHub](https://github.com/Juanjoo-Alvarez/Proyecto3-RANA56-SistemaSolar/releases), sin generar ni adjuntar ZIP propios. La propuesta de audio fue aprobada por Juan. Para construir el juego desde GitHub, sigue la sección Compilar.
 
 ## Misión: ninguna rana se queda atrás
 
@@ -147,9 +151,9 @@ cargo clippy --release --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-**39 pruebas** verifican vuelo, mandos, propulsores, saltos, colisiones, cámara, comunicaciones Unicode y retorno de la radio. La prueba del rescate recorre desde la órbita hasta el regreso con Brasa, mediante entradas reales de movimiento e interacción: verifica los tres colectores, la conversación, el choque de patas, el abordaje y la recompensa. También se prueban sombra/calor, reintento sin perder progreso y el aumento real del turbo. La 0.4.1 añade verificación de longitud de brazos/dedos, contacto de palmas, continuidad de la celebración, eventos de audio sin repeticiones, mezcla de música y recuperación de preferencias inválidas.
+**41 pruebas** verifican vuelo, mandos, propulsores, saltos, colisiones, cámara, comunicaciones Unicode y retorno de la radio. La prueba del rescate recorre desde la órbita hasta el regreso con Brasa, mediante entradas reales de movimiento e interacción: verifica los tres colectores, la conversación, el choque de patas, el abordaje y la recompensa. También se prueban sombra/calor, reintento sin perder progreso y el aumento real del turbo. La 0.4.1 añade verificación de longitud de brazos/dedos, contacto de palmas, continuidad de la celebración, eventos de audio sin repeticiones, mezcla de música y recuperación de preferencias inválidas.
 
-La compilación de la 0.4.2, las 39 pruebas y Clippy terminaron correctamente. Las nuevas pruebas comprueban la escala contra los vértices reales del OBJ, la colisión ampliada, el movimiento interior, el registro de tripulantes, la pausa y el regreso a la misma posición orbital, además de pasos y música dentro de la nave. **Queda pendiente la revisión visual de esta compilación y del nuevo mapeo con un mando físico**, porque no se autorizó ejecutar el juego durante la revisión. La música y el choque de patas de la 0.4.1 fueron probados satisfactoriamente por el jugador. Las capturas incluidas corresponden a la 0.4.0 y versiones anteriores.
+La compilación local, las 41 pruebas y Clippy terminaron correctamente. Se añadieron pruebas de un croac por mensaje, aviso de calor espaciado y mezcla gradual de tensión. Las nuevas pruebas comprueban la escala contra los vértices reales del OBJ, la colisión ampliada, el movimiento interior, el registro de tripulantes, la pausa y el regreso a la misma posición orbital, además de pasos y música dentro de la nave. Juan probó y aprobó la nueva dirección musical. Se verificaron formato, hashes, ausencia de saturación y continuidad de los WAV. La revisión visual del interior y del mapeo con mando continúa pendiente de la versión anterior. Las capturas incluidas corresponden a la 0.4.0 y versiones anteriores.
 
 Comandos para completar la revisión gráfica y de audio y generar nuevas capturas:
 

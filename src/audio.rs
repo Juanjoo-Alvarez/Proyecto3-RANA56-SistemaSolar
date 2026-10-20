@@ -130,8 +130,8 @@ const CUE_FILES: [&str; 17] = [
 ];
 // Quiet voices and footsteps leave room for the score and mission feedback.
 const CUE_GAIN: [f32; 17] = [
-    0.50, 0.42, 0.70, 0.62, 0.29, 0.50, 0.46, 0.65, 0.66, 0.80, 0.72, 0.36, 0.24, 0.27, 0.35, 0.45,
-    0.42,
+    0.35, 0.30, 0.50, 0.42, 0.18, 0.32, 0.30, 0.43, 0.46, 0.80, 0.46, 0.16, 0.12, 0.14, 0.22, 0.30,
+    0.32,
 ];
 
 #[derive(Default)]
@@ -321,12 +321,12 @@ impl EventTracker {
             && self.heat_cooldown == 0.0
         {
             events.push(Cue::HeatWarning);
-            self.heat_cooldown = 5.0;
+            self.heat_cooldown = 12.0;
         }
         if let Some(active) = &comms.active
             && !active.complete()
             && self.voice_cooldown == 0.0
-            && self.voice_count < 3
+            && self.voice_count < 1
         {
             match active.message.speaker.portrait {
                 Portrait::Luma => events.push(Cue::LumaTalk),
@@ -334,7 +334,7 @@ impl EventTracker {
                 Portrait::Terminal => {}
             }
             self.voice_count += 1;
-            self.voice_cooldown = 0.95;
+            self.voice_cooldown = 1.8;
         }
         events
     }
@@ -396,7 +396,9 @@ impl<'a> Track<'a> {
 }
 
 fn environment_track(e: &Expedition) -> usize {
-    if matches!(e.phase, Phase::Orbit | Phase::Cabin) {
+    if e.phase == Phase::Cabin {
+        4
+    } else if e.phase == Phase::Orbit {
         0
     } else if e.zone == Zone::Moon {
         1
@@ -405,8 +407,17 @@ fn environment_track(e: &Expedition) -> usize {
     }
 }
 
+fn danger_gain(e: &Expedition) -> f32 {
+    if e.phase == Phase::OnFoot && e.zone == Zone::Mercury && !e.rescue.unlocked() {
+        let t = ((e.rescue.heat - 55.0) / 45.0).clamp(0.0, 1.0);
+        0.18 * t * t * (3.0 - 2.0 * t)
+    } else {
+        0.0
+    }
+}
+
 pub struct Soundscape<'a> {
-    tracks: [Track<'a>; 4],
+    tracks: [Track<'a>; 6],
     engine: Track<'a>,
     charge: Track<'a>,
     sounds: Vec<Sound<'a>>,
@@ -431,6 +442,8 @@ impl<'a> Soundscape<'a> {
             music("lunar", true)?,
             music("mercury", true)?,
             music("rescue", false)?,
+            music("cabin", true)?,
+            music("tension", true)?,
         ];
         let engine = music("engine", true)?;
         let charge = music("charge", true)?;
@@ -556,13 +569,19 @@ impl<'a> Soundscape<'a> {
         );
         for (i, track_audio) in self.tracks.iter_mut().enumerate() {
             track_audio.update(
-                if i == track { 1.0 } else { 0.0 },
+                if i == track {
+                    1.0
+                } else if i == 5 && !paused && !comms.blocking() {
+                    danger_gain(e)
+                } else {
+                    0.0
+                },
                 if settings.muted {
                     0.0
                 } else {
                     self.music_level
                 },
-                2.2,
+                0.85,
                 dt,
             );
         }
@@ -574,13 +593,13 @@ impl<'a> Soundscape<'a> {
             .max(ship.thrust * 0.7)
             .clamp(0.0, 1.0);
         let engine_target = if flying && !paused && !comms.blocking() {
-            0.065 + 0.32 * power
+            0.12 * power
         } else {
             0.0
         };
         approach(
             &mut self.engine_pitch,
-            0.72 + power * 0.56 + if boosting { 0.10 } else { 0.0 },
+            0.85 + power * 0.18 + if boosting { 0.04 } else { 0.0 },
             5.0,
             dt,
         );
@@ -589,11 +608,11 @@ impl<'a> Soundscape<'a> {
             .update(engine_target, settings.effects_gain(), 9.0, dt);
         let charge_target =
             if e.phase == Phase::OnFoot && e.astronaut.charging && !paused && !comms.blocking() {
-                0.22 + e.astronaut.charge * 0.28
+                0.08 + e.astronaut.charge * 0.10
             } else {
                 0.0
             };
-        self.charge.music.set_pitch(0.9 + e.astronaut.charge * 0.5);
+        self.charge.music.set_pitch(0.9 + e.astronaut.charge * 0.15);
         self.charge
             .update(charge_target, settings.effects_gain(), 14.0, dt);
     }
@@ -617,7 +636,61 @@ impl<'a> Soundscape<'a> {
 mod tests {
     use super::*;
     #[test]
-    fn cabin_uses_space_music_and_footsteps_without_surface_or_flight_cues() {
+    fn dialogue_croaks_once_and_heat_warning_waits_twelve_seconds() {
+        let world = World::default();
+        let mut e = Expedition {
+            phase: Phase::OnFoot,
+            zone: Zone::Mercury,
+            ..Default::default()
+        };
+        e.rescue.heat = 90.0;
+        let mut comms = Comms::default();
+        comms.radio_once(
+            "quiet_voice",
+            "Una frase larga que permanece visible durante esta prueba de audio.",
+        );
+        let mut tracker = EventTracker::default();
+        let (mut croaks, mut warnings) = (0, 0);
+        for frame in 0..300 {
+            for cue in tracker
+                .observe(&world, &e, &comms, false, false, 0.05)
+                .iter()
+            {
+                croaks += usize::from(cue == Cue::LumaTalk);
+                warnings += usize::from(cue == Cue::HeatWarning);
+            }
+            if frame == 120 {
+                assert_eq!(warnings, 1);
+            }
+        }
+        assert_eq!(croaks, 1);
+        assert_eq!(warnings, 2);
+    }
+    #[test]
+    fn danger_layer_is_gradual_bounded_and_only_for_active_heat() {
+        let mut e = Expedition {
+            phase: Phase::OnFoot,
+            zone: Zone::Mercury,
+            ..Default::default()
+        };
+        let mut previous = 0.0;
+        for heat in 0..=100 {
+            e.rescue.heat = heat as f32;
+            let gain = danger_gain(&e);
+            assert!(gain >= previous && gain <= 0.18);
+            if heat <= 55 {
+                assert_eq!(gain, 0.0);
+            }
+            previous = gain;
+        }
+        e.rescue.collectors = [true; 3];
+        assert_eq!(danger_gain(&e), 0.0);
+        e.rescue.collectors = [false; 3];
+        e.phase = Phase::Cabin;
+        assert_eq!(danger_gain(&e), 0.0);
+    }
+    #[test]
+    fn cabin_uses_its_own_music_and_footsteps_without_surface_or_flight_cues() {
         let mut e = Expedition {
             phase: Phase::Cabin,
             zone: Zone::Mercury,
@@ -626,7 +699,8 @@ mod tests {
         let world = World::default();
         let comms = Comms::default();
         e.rescue.heat = 99.0;
-        assert_eq!(environment_track(&e), 0);
+        assert_eq!(environment_track(&e), 4);
+        assert_eq!(danger_gain(&e), 0.0);
         let mut tracker = EventTracker::default();
         tracker.observe(&world, &e, &comms, false, false, 1.0 / 60.0);
         e.cabin.captain.position.x += 1.6;
