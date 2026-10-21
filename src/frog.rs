@@ -7,6 +7,12 @@ use raylib::prelude::*;
 pub enum Species {
     Tree,
     Tomato,
+    Dart,
+}
+impl Species {
+    pub fn scale(self) -> f32 {
+        if self == Self::Dart { 0.72 } else { 1.0 }
+    }
 }
 #[derive(Default)]
 pub struct Pose {
@@ -29,7 +35,8 @@ fn body_width(species: Species) -> f32 {
 fn world_point(a: &Astronaut, species: Species, bob: f32, p: Vector3) -> Vector3 {
     let (s, c) = a.yaw.sin_cos();
     let p = v(p.x * body_width(species), p.y, p.z);
-    a.position + v(0.0, bob, 0.0) + v(c * p.x + s * p.z, p.y, -s * p.x + c * p.z)
+    a.position
+        + (v(0.0, bob, 0.0) + v(c * p.x + s * p.z, p.y, -s * p.x + c * p.z)) * species.scale()
 }
 
 struct Arm {
@@ -110,18 +117,24 @@ pub fn draw_actor<D: RaylibDraw3D>(
     pose: &Pose,
 ) {
     let tomato = species == Species::Tomato;
+    let small = species == Species::Dart;
+    let scale = species.scale();
     let suit = if tomato {
         Color::new(223, 166, 92, 255)
     } else {
         Color::new(225, 234, 222, 255)
     };
     let dark = Color::new(24, 55, 69, 255);
-    let green = if tomato {
+    let green = if small {
+        Color::new(42, 133, 226, 255)
+    } else if tomato {
         Color::new(220, 66, 37, 255)
     } else {
         Color::new(76, 191, 55, 255)
     };
-    let lime = if tomato {
+    let lime = if small {
+        Color::new(109, 215, 238, 255)
+    } else if tomato {
         Color::new(255, 163, 85, 255)
     } else {
         Color::new(143, 216, 65, 255)
@@ -152,12 +165,19 @@ pub fn draw_actor<D: RaylibDraw3D>(
             local(center),
             v(0.0, 1.0, 0.0),
             a.yaw.to_degrees(),
-            size,
+            size * scale,
             color,
         );
     };
     let limb = |d: &mut D, from: Vector3, to: Vector3, radius: f32, color: Color| {
-        d.draw_cylinder_ex(local(from), local(to), radius, radius * 0.85, 8, color);
+        d.draw_cylinder_ex(
+            local(from),
+            local(to),
+            radius * scale,
+            radius * 0.85 * scale,
+            8,
+            color,
+        );
     };
     // Sombra de contacto en el suelo; se separa de los pies durante el salto.
     let ground = if a.grounded {
@@ -167,8 +187,8 @@ pub fn draw_actor<D: RaylibDraw3D>(
     };
     d.draw_cylinder(
         v(a.position.x, ground, a.position.z),
-        0.8,
-        0.8,
+        0.8 * scale,
+        0.8 * scale,
         0.012,
         16,
         Color::new(7, 14, 26, 105),
@@ -244,7 +264,7 @@ pub fn draw_actor<D: RaylibDraw3D>(
             );
         }
         let airborne = if !a.grounded { 0.33 } else { 0.0 };
-        let salute = if side == if tomato { -1.0 } else { 1.0 } {
+        let salute = if side == if species != Species::Tree { -1.0 } else { 1.0 } {
             pose.high_five
         } else {
             0.0
@@ -264,14 +284,21 @@ pub fn draw_actor<D: RaylibDraw3D>(
             local(hand),
             axis,
             angle,
-            v(0.20, PALM_THICKNESS, 0.18),
+            v(0.20, PALM_THICKNESS, 0.18) * scale,
             orange,
         );
         for finger in -1..=1 {
             let offset = hand_offset(v(finger as f32 * 0.10, -0.03, 0.24), side, salute);
             let end = hand + v(offset.x / body_width(species), offset.y, offset.z);
             limb(d, hand, end, 0.035, orange);
-            d.draw_model_ex(mesh, local(end), axis, angle, v(0.07, 0.045, 0.07), orange);
+            d.draw_model_ex(
+                mesh,
+                local(end),
+                axis,
+                angle,
+                v(0.07, 0.045, 0.07) * scale,
+                orange,
+            );
         }
         // Franja azul de los costados.
         ball(
@@ -289,6 +316,16 @@ pub fn draw_actor<D: RaylibDraw3D>(
         green,
     );
     ball(d, v(0.0, head - 0.16, 0.26), v(0.64, 0.20, 0.39), lime);
+    if small {
+        for (x, y, z) in [
+            (-0.4, 0.13, 0.46),
+            (0.26, 0.21, 0.48),
+            (-0.13, 0.27, 0.46),
+            (0.55, -0.08, 0.41),
+        ] {
+            ball(d, v(x, head + y, z), v(0.07, 0.055, 0.025), dark);
+        }
+    }
     // Boca sonriente: arco de segmentos sobre el hocico.
     for i in 0..8 {
         let x0 = -0.38 + i as f32 * 0.095;
@@ -332,7 +369,9 @@ pub fn draw_actor<D: RaylibDraw3D>(
             if blink {
                 green
             } else {
-                if tomato {
+                if small {
+                    Color::new(25, 42, 58, 255)
+                } else if tomato {
                     Color::new(249, 202, 65, 255)
                 } else {
                     Color::new(229, 60, 35, 255)
@@ -366,17 +405,17 @@ pub fn draw_actor<D: RaylibDraw3D>(
     }
     // Burbuja de casco dibujada al final para conservar la cara visible.
     let helmet = local(v(0.0, head + 0.06, 0.02));
-    d.draw_sphere_ex(helmet, 1.03, 14, 20, Color::new(150, 228, 245, 17));
+    d.draw_sphere_ex(helmet, 1.03 * scale, 14, 20, Color::new(150, 228, 245, 17));
     d.draw_circle3D(
         helmet,
-        1.035,
+        1.035 * scale,
         v(0.0, 1.0, 0.0),
         a.yaw.to_degrees(),
         Color::new(142, 224, 235, 110),
     );
     d.draw_circle3D(
         helmet,
-        1.035,
+        1.035 * scale,
         v(0.0, 1.0, 0.0),
         a.yaw.to_degrees() + 90.0,
         Color::new(142, 224, 235, 70),
@@ -389,7 +428,7 @@ mod tests {
 
     #[test]
     fn arm_bones_and_fingers_keep_their_lengths_through_every_blend() {
-        for species in [Species::Tree, Species::Tomato] {
+        for species in [Species::Tree, Species::Tomato, Species::Dart] {
             for side in [-1.0, 1.0] {
                 for yaw in [0.0, 0.73, std::f32::consts::PI, 4.8] {
                     let mut a = Astronaut::default();
@@ -404,15 +443,23 @@ mod tests {
                             let shoulder = world_point(&a, species, 0.0, arm.shoulder);
                             let elbow = world_point(&a, species, 0.0, arm.elbow);
                             let hand = world_point(&a, species, 0.0, arm.hand);
-                            assert!((length(elbow - shoulder) - UPPER_ARM).abs() < 0.00001);
-                            assert!((length(hand - elbow) - FOREARM).abs() < 0.00001);
+                            assert!(
+                                (length(elbow - shoulder) - UPPER_ARM * species.scale()).abs()
+                                    < 0.00001
+                            );
+                            assert!(
+                                (length(hand - elbow) - FOREARM * species.scale()).abs() < 0.00001
+                            );
                             for finger in -1..=1 {
                                 let rest = v(finger as f32 * 0.10, -0.03, 0.24);
                                 let offset = hand_offset(rest, side, blend);
                                 let end = arm.hand
                                     + v(offset.x / body_width(species), offset.y, offset.z);
                                 let end = world_point(&a, species, 0.0, end);
-                                assert!((length(end - hand) - length(rest)).abs() < 0.00001);
+                                assert!(
+                                    (length(end - hand) - length(rest) * species.scale()).abs()
+                                        < 0.00001
+                                );
                             }
                         }
                     }
@@ -444,5 +491,25 @@ mod tests {
         }
         assert!(length(palms[0] - palms[1]) < 0.00001);
         assert!(length(a.position - r.brasa.position) > 2.0 * 1.035 + 0.20);
+    }
+    #[test]
+    fn small_frog_jumps_to_meet_the_captains_palm() {
+        let mut m = crate::venus::Mission::default();
+        let mut a = Astronaut::default();
+        a.position = crate::venus::REFUGE + v(0.0, 0.0, 3.0);
+        m.seeds = [true; 3];
+        assert!(m.interact(&a));
+        m.celebration = crate::venus::CONTACT;
+        m.update(&mut a, 0.0);
+        for (actor, species, side) in [(&a, Species::Tree, 1.0), (&m.lirio, Species::Dart, -1.0)] {
+            let arm = arm_pose(species, side, 1.18, 0.0, 0.0, m.high_five());
+            let hand = world_point(actor, species, 0.0, arm.hand);
+            let normal = hand_offset(v(0.0, 1.0, 0.0), side, m.high_five());
+            let palm = hand + normal * PALM_THICKNESS * species.scale();
+            assert!(
+                length(palm - crate::venus::contact_point()) < 0.0001,
+                "palm {palm:?}"
+            );
+        }
     }
 }

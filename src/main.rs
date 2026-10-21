@@ -14,6 +14,7 @@ mod scene;
 mod ship;
 mod simulation;
 mod ui;
+mod venus;
 
 use raylib::prelude::*;
 use simulation::*;
@@ -39,7 +40,9 @@ struct Options {
     compact: bool,
     pad_preview: bool,
     mercury: bool,
+    venus: bool,
     smoke_rescue: bool,
+    smoke_venus: bool,
     celebration_preview: bool,
     celebration_demo: bool,
     audio_menu_preview: bool,
@@ -68,7 +71,9 @@ fn options() -> Result<Options, String> {
         compact: false,
         pad_preview: false,
         mercury: false,
+        venus: false,
         smoke_rescue: false,
+        smoke_venus: false,
         celebration_preview: false,
         celebration_demo: false,
         audio_menu_preview: false,
@@ -103,10 +108,15 @@ fn options() -> Result<Options, String> {
             "--controller-report" => opts.controller_report = true,
             "--smoke-tour" => opts.smoke_tour = true,
             "--flight-check" => opts.flight_check = true,
+            "--venus" => {
+                opts.venus = true;
+                opts.walking = true;
+            }
             "--mercury" => {
                 opts.mercury = true;
                 opts.walking = true;
             }
+            "--smoke-venus" => opts.smoke_venus = true,
             "--smoke-rescue" => opts.smoke_rescue = true,
             "--celebration-preview" => {
                 opts.mercury = true;
@@ -154,7 +164,7 @@ fn options() -> Result<Options, String> {
             }
             "--help" => {
                 println!(
-                    "RANA / 56 - Operacion Croac v0.4.3\ncargo run --release\nOpciones: --frames N --capture archivo.png --overview --planet 1..8 --hidden --lunar --near-moon --controller-report --smoke-tour --flight-check --walking --portrait --radio-preview --dialogue-preview --compact --pad-preview --mercury --smoke-rescue --celebration-preview --celebration-demo --audio-menu-preview --audio-check --mute --no-audio --cabin --crew-preview"
+                    "RANA / 56 - Operacion Croac v0.5.0\ncargo run --release\nOpciones: --frames N --capture archivo.png --overview --planet 1..8 --hidden --lunar --near-moon --controller-report --smoke-tour --flight-check --walking --portrait --radio-preview --dialogue-preview --compact --pad-preview --mercury --venus --smoke-venus --smoke-rescue --celebration-preview --celebration-demo --audio-menu-preview --audio-check --mute --no-audio --cabin --crew-preview"
                 );
                 std::process::exit(0);
             }
@@ -164,7 +174,7 @@ fn options() -> Result<Options, String> {
     if opts.capture.is_some() && opts.frames.is_none() {
         opts.frames = Some(8);
     }
-    if opts.smoke_tour || opts.smoke_rescue {
+    if opts.smoke_tour || opts.smoke_rescue || opts.smoke_venus {
         opts.frames = Some(9000);
     }
     if opts.audio_check && opts.no_audio {
@@ -197,7 +207,7 @@ fn run() -> Result<(), String> {
             if opts.compact { 1280 } else { 1440 },
             if opts.compact { 800 } else { 900 },
         )
-        .title("RANA-56 | Operacion Croac v0.4.3 - Proyecto 3")
+        .title("RANA-56 | Operacion Croac v0.5.0 - Proyecto 3")
         .resizable()
         .msaa_4x()
         .log_level(TraceLogLevel::LOG_WARNING);
@@ -206,11 +216,13 @@ fn run() -> Result<(), String> {
     }
     let (mut rl, thread) = builder.build();
     rl.set_exit_key(None);
-    rl.set_target_fps(if opts.smoke_tour || opts.smoke_rescue {
-        0
-    } else {
-        60
-    });
+    rl.set_target_fps(
+        if opts.smoke_tour || opts.smoke_rescue || opts.smoke_venus {
+            0
+        } else {
+            60
+        },
+    );
     rl.set_window_min_size(1280, 800);
     let mut assets = scene::Assets::load(&mut rl, &thread, &root)?;
     let mut portraits = portraits::Portraits::load(&mut rl, &thread)?;
@@ -262,13 +274,28 @@ fn run() -> Result<(), String> {
     }
     let mut world = World::default();
     let mut expedition = expedition::Expedition::default();
-    world.selected = 0;
-    world.message = "Primer rescate: Mercurio. F / Triángulo para trazar ruta.".into();
+    world.selected = 1;
+    world.message = "Segundo rescate: Venus. F / Triángulo para trazar ruta.".into();
     if opts.mercury {
         expedition.zone = expedition::Zone::Mercury;
         expedition.astronaut.mercury = true;
     }
-    if opts.celebration_preview || opts.celebration_demo {
+    if opts.venus {
+        expedition.zone = expedition::Zone::Venus;
+        expedition.astronaut.venus = true;
+        expedition.astronaut.mercury = false;
+    }
+    if (opts.celebration_preview || opts.celebration_demo) && opts.venus {
+        expedition.venus.seeds = [true; 3];
+        expedition.astronaut.position = venus::REFUGE + v(0.0, 0.0, 3.0);
+        expedition.venus.interact(&expedition.astronaut);
+        expedition.venus.celebration = if opts.celebration_preview {
+            venus::CONTACT
+        } else {
+            0.0
+        };
+        expedition.venus.update(&mut expedition.astronaut, 0.0);
+    } else if opts.celebration_preview || opts.celebration_demo {
         expedition.rescue.collectors = [true; 3];
         expedition.rescue.status = rescue::Status::Celebration;
         expedition.rescue.celebration = if opts.celebration_preview {
@@ -293,6 +320,9 @@ fn run() -> Result<(), String> {
     }
     if opts.near_moon {
         world.position = moon_position(0.0) + v(0.0, 4.0, 8.0);
+    }
+    if opts.smoke_venus {
+        world.travel(1);
     }
     if opts.smoke_rescue {
         world.travel(0);
@@ -331,6 +361,7 @@ fn run() -> Result<(), String> {
     if opts.cabin {
         if opts.crew_preview {
             expedition.rescue.status = rescue::Status::Complete;
+            expedition.venus.status = rescue::Status::Complete;
             expedition.rescue.collectors = [true; 3];
         }
         expedition.phase = expedition::Phase::Orbit;
@@ -347,6 +378,7 @@ fn run() -> Result<(), String> {
     let mut frames = 0u32;
     let mut trial = astronaut::TrialPilot::default();
     let mut smoke_conversation = false;
+    let mut venus_trial = venus::Pilot::default();
     let mut rescue_trial = rescue::RescuePilot::default();
     while !rl.window_should_close() {
         use KeyboardKey::*;
@@ -553,6 +585,31 @@ fn run() -> Result<(), String> {
                 _ => {}
             }
         }
+        if opts.smoke_venus {
+            input = Input::default();
+            walk = astronaut::WalkInput::default();
+            if comms.blocking() {
+                if frames.is_multiple_of(30) {
+                    comms.advance();
+                }
+            } else {
+                match expedition.phase {
+                    expedition::Phase::Orbit
+                        if expedition.can_land(&world) && !expedition.venus.complete() =>
+                    {
+                        expedition.interact(&mut world)
+                    }
+                    expedition::Phase::OnFoot => {
+                        walk = venus_trial.input(&expedition.astronaut, &expedition.venus, dt);
+                        if venus_trial.interact(&expedition.astronaut, &expedition.venus) {
+                            expedition.interact(&mut world);
+                        }
+                    }
+                    expedition::Phase::Surface => expedition.interact(&mut world),
+                    _ => {}
+                }
+            }
+        }
         if opts.smoke_rescue {
             input = Input::default();
             walk = astronaut::WalkInput::default();
@@ -585,7 +642,7 @@ fn run() -> Result<(), String> {
             && !diagnostic
             && !world.paused
             && !comms.blocking()
-            && (!consumed || opts.smoke_tour || opts.smoke_rescue)
+            && (!consumed || opts.smoke_tour || opts.smoke_rescue || opts.smoke_venus)
         {
             expedition.update(&mut world, input, walk, dt);
         }
@@ -668,6 +725,8 @@ fn run() -> Result<(), String> {
                     overview,
                     &ui,
                 );
+            } else if expedition.zone == expedition::Zone::Venus {
+                venus::draw(&mut d, &mut assets, &expedition, active_camera);
             } else if expedition.zone == expedition::Zone::Mercury {
                 mercury::draw(&mut d, &mut assets, &expedition, active_camera);
             } else {
@@ -695,7 +754,8 @@ fn run() -> Result<(), String> {
         frames += 1;
         let final_frame = opts.frames.is_some_and(|limit| frames >= limit)
             || (opts.smoke_tour && expedition.completed)
-            || (opts.smoke_rescue && expedition.rescue.thermal_shield());
+            || (opts.smoke_rescue && expedition.rescue.thermal_shield())
+            || (opts.smoke_venus && expedition.venus.complete());
         if screenshot || (final_frame && opts.capture.is_some()) {
             let path = opts
                 .capture
@@ -717,6 +777,16 @@ fn run() -> Result<(), String> {
     }
     if let Some(audio) = &soundscape {
         println!("{}", audio.report());
+    }
+    if opts.smoke_venus
+        && (!expedition.venus.complete()
+            || !expedition.cabin.crew[1]
+            || comms.conversations_finished != 1)
+    {
+        return Err(format!(
+            "Venus incompleto: {:?}, paso {}, posición {:?}",
+            expedition.venus.status, venus_trial.waypoint, expedition.astronaut.position
+        ));
     }
     if opts.smoke_rescue
         && (!expedition.rescue.thermal_shield() || comms.conversations_finished != 1)

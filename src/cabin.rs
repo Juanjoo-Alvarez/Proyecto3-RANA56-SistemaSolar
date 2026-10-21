@@ -54,7 +54,14 @@ impl Cabin {
     pub fn near_brasa(&self) -> bool {
         self.crew[0] && length(self.captain.position - station(0)) < 3.0
     }
+    pub fn near_lirio(&self) -> bool {
+        self.crew[1] && length(self.captain.position - station(1)) < 3.0
+    }
     pub fn talk(&self, comms: &mut Comms) {
+        if self.near_lirio() {
+            comms.begin_script(&[(comms::LUMA, "¡Qué bonitas flores, Lirio!"), (comms::LIRIO, "Las semillas de Venus ya se sienten en casa. Cada planta necesita paciencia... como encontrar a nuestros amigos."), (comms::LUMA, "Seguiremos buscando. Ninguna rana se queda atrás.")]);
+            return;
+        }
         if self.near_brasa() {
             comms.begin_script(&[
                 (comms::LUMA, "¡Qué bien verte en casa, Brasa! Este lugar ya se siente menos vacío."),
@@ -267,6 +274,41 @@ pub fn draw(
                 },
             );
         }
+        if cabin.crew[1] {
+            let mut lirio = Astronaut::default();
+            lirio.position = station(1) + v(0.0, 0.28, 0.0);
+            lirio.yaw = std::f32::consts::FRAC_PI_2;
+            lirio.time = comms.time;
+            let talking = comms.active.as_ref().is_some_and(|a| {
+                matches!(a.message.speaker.portrait, comms::Portrait::Lirio) && !a.complete()
+            });
+            frog::draw_actor(
+                &mut s,
+                &assets.frog_mesh,
+                &lirio,
+                Species::Dart,
+                &Pose {
+                    talking,
+                    high_five: 0.0,
+                },
+            );
+            for z in [-3.0, 1.0] {
+                let p = v(-6.4, 0.0, z);
+                s.draw_cylinder(p, 0.35, 0.25, 0.5, 8, Color::GOLD);
+                s.draw_cylinder(p + v(0.0, 0.5, 0.0), 0.06, 0.06, 1.1, 8, MINT);
+                for i in 0..5 {
+                    let a = i as f32 * std::f32::consts::TAU / 5.0;
+                    s.draw_sphere_ex(
+                        p + v(a.cos() * 0.22, 1.6, a.sin() * 0.22),
+                        0.18,
+                        6,
+                        8,
+                        Color::new(255, 190, 210, 255),
+                    );
+                }
+                s.draw_sphere_ex(p + v(0.0, 1.65, 0.0), 0.13, 6, 8, Color::GOLD);
+            }
+        }
         let mut luma = Astronaut::default();
         luma.position = cabin.captain.position;
         luma.yaw = cabin.captain.yaw;
@@ -292,7 +334,11 @@ pub fn draw(
     for (i, planet) in PLANETS.iter().enumerate() {
         if let Some(p) = scene::project(station(i) + v(0.0, 0.4, 1.5), camera, w, h) {
             let label = if cabin.crew[i] {
-                "Brasa · Mecánica"
+                if i == 1 {
+                    "Lirio · Botánico"
+                } else {
+                    "Brasa · Mecánica"
+                }
             } else {
                 planet.name
             };

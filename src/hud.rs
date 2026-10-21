@@ -40,7 +40,9 @@ impl Hud<'_> {
         } else if e.phase == Phase::Orbit {
             self.orbit(d, w, h);
         } else {
-            if e.zone == crate::expedition::Zone::Mercury {
+            if e.zone == crate::expedition::Zone::Venus {
+                self.venus(d, w, h);
+            } else if e.zone == crate::expedition::Zone::Mercury {
                 self.mercury(d, w, h);
             } else {
                 self.lunar(d, w, h);
@@ -70,14 +72,7 @@ impl Hud<'_> {
             ui.text(d, "Audio silenciado", w - 310.0, h - 22.0, 13.0, MUTED);
         }
         // Una firma discreta; los detalles del dispositivo viven en su diagnostico.
-        ui.text(
-            d,
-            "RANA / 56 · 0.4.3",
-            w - 200.0,
-            h - 22.0,
-            13.0,
-            MUTED,
-        );
+        ui.text(d, "RANA / 56 · 0.5.0", w - 200.0, h - 22.0, 13.0, MUTED);
     }
     fn heading(&self, d: &mut RaylibDrawHandle, title: &str, subtitle: &str) {
         let ui = self.ui;
@@ -140,10 +135,14 @@ impl Hud<'_> {
             17.0,
             CREAM,
         );
-        if !self.comms.blocking() && cabin.near_brasa() {
+        if !self.comms.blocking() && (cabin.near_brasa() || cabin.near_lirio()) {
             ui.prompt(
                 d,
-                "Hablar con Brasa",
+                if cabin.near_lirio() {
+                    "Hablar con Lirio"
+                } else {
+                    "Hablar con Brasa"
+                },
                 Button::Triangle,
                 self.gamepad_hints,
                 "E",
@@ -155,6 +154,114 @@ impl Hud<'_> {
                         h - 143.0
                     },
                 ),
+            );
+        }
+    }
+    fn venus(&self, d: &mut RaylibDrawHandle, w: f32, h: f32) {
+        use crate::rescue::Status;
+        let e = self.e;
+        let r = &e.venus;
+        let ui = self.ui;
+        self.heading(d, "Jardines de Nimbo", "Venus · Rescate de Lirio");
+        let objective = match r.status {
+            Status::Waiting if !r.unlocked() => "Recupera las semillas de luz",
+            Status::Waiting => "Encuentra a Lirio en el refugio",
+            Status::Celebration => "¡Una pata pequeña, un gran salto!",
+            Status::Escort => "Regresa con Lirio a la nave",
+            Status::Aboard => "Despega con tu tripulante",
+            Status::Complete => "Lirio está a salvo en la nave",
+        };
+        ui.panel(d, Rectangle::new(26.0, 126.0, 322.0, 80.0));
+        ui.text(d, objective, 43.0, 141.0, 18.0, CREAM);
+        ui.text(
+            d,
+            &format!(
+                "Semillas de luz  {} / 3",
+                r.seeds.iter().filter(|&&b| b).count()
+            ),
+            43.0,
+            173.0,
+            18.0,
+            MINT,
+        );
+        if e.phase == Phase::OnFoot {
+            for (i, seed) in crate::venus::SEEDS.iter().enumerate() {
+                if !r.seeds[i]
+                    && let Some(p) = crate::scene::project(
+                        *seed + v(0.0, 3.0, 0.0),
+                        self.camera,
+                        w as i32,
+                        h as i32,
+                    )
+                    && p.x > 45.0
+                    && p.x < w - 100.0
+                    && p.y > 215.0
+                    && p.y < h - 260.0
+                {
+                    ui.text(
+                        d,
+                        &format!("Semilla {}", i + 1),
+                        p.x - 35.0,
+                        p.y,
+                        17.0,
+                        GOLD,
+                    );
+                }
+            }
+            let label = if r.near_refuge(&e.astronaut) && r.status == Status::Waiting {
+                if r.unlocked() {
+                    Some("Rescatar a Lirio")
+                } else {
+                    Some("Faltan semillas de luz")
+                }
+            } else if e.astronaut.near_ship() {
+                Some(if r.status == Status::Escort && !r.lirio.near_ship() {
+                    "Espera a Lirio"
+                } else {
+                    "Abordar RANA-56"
+                })
+            } else {
+                None
+            };
+            if !self.comms.blocking()
+                && let Some(label) = label
+            {
+                ui.prompt(
+                    d,
+                    label,
+                    Button::Triangle,
+                    self.gamepad_hints,
+                    "E",
+                    Vector2::new(
+                        w * 0.5,
+                        if self.comms.active.is_some() {
+                            h - 302.0
+                        } else {
+                            h - 94.0
+                        },
+                    ),
+                );
+            }
+            ui.text(
+                d,
+                if self.gamepad_hints {
+                    "Stick izq · Caminar   Mantén X y suelta · Salto   R2 · Correr"
+                } else {
+                    "WASD · Caminar   Mantén Espacio y suelta · Salto   Shift · Correr"
+                },
+                28.0,
+                h - 48.0,
+                16.0,
+                CREAM,
+            );
+        } else if e.phase == Phase::Surface && e.at_pad() {
+            ui.prompt(
+                d,
+                "Despegar",
+                Button::Cross,
+                self.gamepad_hints,
+                "E",
+                Vector2::new(w * 0.5, h - 94.0),
             );
         }
     }
@@ -597,11 +704,10 @@ impl Hud<'_> {
         );
         ui.text(
             d,
-            if self.e.rescue.thermal_shield() {
-                "Brasa 1/8 · Escudo térmico +15% turbo"
-            } else {
-                "Primer rescate · Brasa en Mercurio"
-            },
+            &format!(
+                "Tripulación {} / 8 · Mercurio y Venus",
+                self.e.cabin.count()
+            ),
             28.0,
             309.0,
             18.0,
@@ -676,7 +782,9 @@ impl Hud<'_> {
         if self.e.can_land(world) {
             ui.prompt(
                 d,
-                if self.e.landing_zone(world) == Some(crate::expedition::Zone::Mercury) {
+                if self.e.landing_zone(world) == Some(crate::expedition::Zone::Venus) {
+                    "Descender a Venus"
+                } else if self.e.landing_zone(world) == Some(crate::expedition::Zone::Mercury) {
                     "Descender a Mercurio"
                 } else {
                     "Descender a la Luna"
@@ -1048,8 +1156,8 @@ impl Hud<'_> {
             }
         } else {
             let lines = [
-                "1. Viaja a Mercurio: Triángulo / F. Desciende: X / E.",
-                "2. Apaga los colectores (Triángulo/E); rescata a Brasa.",
+                "1. Elige planeta: L1/R1. Ruta: Triángulo/F. Baja: X/E.",
+                "2. Mercurio: apaga colectores. Venus: recoge semillas.",
                 "3. Triángulo / E para abordar; después X / E para despegar.",
                 "",
                 "A pie: stick izquierdo / WASD. R2 / Shift para correr.",

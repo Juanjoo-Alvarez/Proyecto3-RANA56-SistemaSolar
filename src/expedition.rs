@@ -44,8 +44,19 @@ pub enum Zone {
     #[default]
     Moon,
     Mercury,
+    Venus,
+}
+impl Zone {
+    pub fn destination(self) -> usize {
+        match self {
+            Self::Moon => MOON,
+            Self::Mercury => 0,
+            Self::Venus => 1,
+        }
+    }
 }
 pub struct Expedition {
+    pub venus: crate::venus::Mission,
     pub cabin: crate::cabin::Cabin,
     pub zone: Zone,
     pub rescue: crate::rescue::Rescue,
@@ -60,6 +71,7 @@ pub struct Expedition {
 impl Default for Expedition {
     fn default() -> Self {
         Self {
+            venus: crate::venus::Mission::default(),
             cabin: crate::cabin::Cabin::default(),
             zone: Zone::Moon,
             rescue: crate::rescue::Rescue::default(),
@@ -91,6 +103,9 @@ impl Expedition {
                 if self.rescue.thermal_shield() {
                     self.cabin.recruit(0);
                 }
+                if self.venus.complete() {
+                    self.cabin.recruit(1);
+                }
                 self.phase = Phase::Cabin;
                 true
             }
@@ -104,6 +119,7 @@ impl Expedition {
     fn reset_astronaut(&mut self) {
         self.astronaut = Astronaut::default();
         self.astronaut.mercury = self.zone == Zone::Mercury;
+        self.astronaut.venus = self.zone == Zone::Venus;
         self.rescue.heat = 0.0;
     }
     pub fn landing_zone(&self, orbit: &World) -> Option<Zone> {
@@ -111,6 +127,8 @@ impl Expedition {
             Some(Zone::Moon)
         } else if length(orbit.position - PLANETS[0].position(orbit.time)) < 17.0 {
             Some(Zone::Mercury)
+        } else if length(orbit.position - PLANETS[1].position(orbit.time)) < 18.0 {
+            Some(Zone::Venus)
         } else {
             None
         }
@@ -160,7 +178,19 @@ impl Expedition {
                     self.phase = Phase::Rescue;
                 }
             }
+            Phase::OnFoot if self.zone == Zone::Venus && self.venus.interact(&self.astronaut) => {
+                if self.venus.status == crate::rescue::Status::Celebration {
+                    self.phase = Phase::Rescue;
+                }
+            }
             Phase::OnFoot if self.astronaut.near_ship() => {
+                if self.zone == Zone::Venus && self.venus.status == crate::rescue::Status::Escort {
+                    if !self.venus.lirio.near_ship() {
+                        return;
+                    }
+                    self.venus.boarding_start = self.venus.lirio.position;
+                    self.venus.status = crate::rescue::Status::Aboard;
+                }
                 if self.zone == Zone::Mercury && self.rescue.status == crate::rescue::Status::Escort
                 {
                     if !self.rescue.brasa.near_ship() {
@@ -186,7 +216,7 @@ impl Expedition {
         }
         if self.phase == Phase::Orbit {
             orbit.reset();
-            orbit.selected = if self.zone == Zone::Moon { MOON } else { 0 };
+            orbit.selected = self.zone.destination();
         } else if self.astronaut_visible() {
             self.reset_astronaut();
             self.phase = Phase::OnFoot;
@@ -221,15 +251,19 @@ impl Expedition {
                         self.disembark();
                     } else {
                         self.phase = Phase::Orbit;
-                        orbit.position = destination_position(
-                            if self.zone == Zone::Moon { MOON } else { 0 },
-                            orbit.time,
-                        ) + v(0.0, 5.0, 10.0);
+                        orbit.position = destination_position(self.zone.destination(), orbit.time)
+                            + v(0.0, 5.0, 10.0);
                         if self.zone == Zone::Mercury
                             && self.rescue.status == crate::rescue::Status::Aboard
                         {
                             self.rescue.status = crate::rescue::Status::Complete;
                             self.cabin.recruit(0);
+                        }
+                        if self.zone == Zone::Venus
+                            && self.venus.status == crate::rescue::Status::Aboard
+                        {
+                            self.venus.status = crate::rescue::Status::Complete;
+                            self.cabin.recruit(1);
                         }
                         orbit.velocity = v(0.0, 0.0, 0.0);
                         orbit.yaw = 0.0;
@@ -264,6 +298,17 @@ impl Expedition {
                     self.rescue.brasa.velocity = v(-2.0, 0.0, 0.0);
                     self.rescue.brasa.yaw = -std::f32::consts::FRAC_PI_2;
                 }
+                if self.phase == Phase::Boarding
+                    && self.zone == Zone::Venus
+                    && self.venus.status == crate::rescue::Status::Aboard
+                {
+                    self.venus.lirio.position =
+                        self.venus.boarding_start + (door - self.venus.boarding_start) * t;
+                    self.venus.lirio.time += dt;
+                    self.venus.lirio.animation += dt * 10.0;
+                    self.venus.lirio.velocity = v(-2.0, 0.0, 0.0);
+                    self.venus.lirio.yaw = -std::f32::consts::FRAC_PI_2;
+                }
                 self.astronaut.time += dt;
                 self.astronaut.animation += dt * 10.0;
                 self.astronaut.velocity = v(2.0, 0.0, 0.0);
@@ -293,6 +338,9 @@ impl Expedition {
                     }
                     self.rescue.update(&mut self.astronaut, dt);
                 }
+                if self.zone == Zone::Venus {
+                    self.venus.update(&mut self.astronaut, dt);
+                }
                 for (i, beacon) in BEACONS
                     .iter()
                     .enumerate()
@@ -305,8 +353,14 @@ impl Expedition {
             }
             Phase::Rescue => {
                 self.local.time += dt;
-                self.rescue.update(&mut self.astronaut, dt);
-                if self.rescue.status == crate::rescue::Status::Escort {
+                let status = if self.zone == Zone::Venus {
+                    self.venus.update(&mut self.astronaut, dt);
+                    self.venus.status
+                } else {
+                    self.rescue.update(&mut self.astronaut, dt);
+                    self.rescue.status
+                };
+                if status == crate::rescue::Status::Escort {
                     self.phase = Phase::OnFoot;
                 }
             }

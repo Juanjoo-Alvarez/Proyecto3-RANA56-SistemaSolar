@@ -120,14 +120,15 @@ pub const TERMINAL: Platform = Platform {
         z: 1.4,
     },
 };
-fn solids(mercury: bool) -> impl Iterator<Item = Platform> {
+fn solids(mercury: bool, venus: bool) -> impl Iterator<Item = Platform> {
     PLATFORMS
         .into_iter()
-        .filter(move |_| !mercury)
+        .filter(move |_| !mercury && !venus)
+        .chain(crate::venus::PLATFORMS.into_iter().filter(move |_| venus))
         .chain(
             [SHIP_BLOCK, TERMINAL]
                 .into_iter()
-                .filter(move |b| !mercury || b.center.z == 28.0),
+                .filter(move |b| (!mercury && !venus) || b.center.z == 28.0),
         )
         .chain(MERCURY_BLOCKS.into_iter().filter(move |_| mercury))
         .chain(
@@ -166,6 +167,7 @@ pub struct WalkInput {
     pub run: bool,
 }
 pub struct Astronaut {
+    pub venus: bool,
     pub mercury: bool,
     pub position: Vector3,
     pub velocity: Vector3,
@@ -185,6 +187,7 @@ pub struct Astronaut {
 impl Default for Astronaut {
     fn default() -> Self {
         Self {
+            venus: false,
             mercury: false,
             position: SPAWN,
             velocity: v(0.0, 0.0, 0.0),
@@ -297,7 +300,7 @@ impl Astronaut {
             } else {
                 self.position.z += self.velocity.z * dt;
             }
-            for b in solids(self.mercury) {
+            for b in solids(self.mercury, self.venus) {
                 if self.position.y >= b.top() - 0.03
                     || self.position.y + HEIGHT <= b.center.y - b.size.y * 0.5
                 {
@@ -321,7 +324,7 @@ impl Astronaut {
         let was_grounded = self.grounded;
         self.grounded = false;
         let mut support = floor(self.position);
-        for b in solids(self.mercury) {
+        for b in solids(self.mercury, self.venus) {
             if b.contains(self.position, RADIUS * 0.55) {
                 if self.velocity.y <= 0.0 && old.y >= b.top() - 0.04 && self.position.y <= b.top() {
                     support = support.max(b.top());
@@ -365,7 +368,7 @@ impl Astronaut {
         let mut safe = target;
         for i in 1..=48 {
             let p = target + (desired - target) * (i as f32 / 48.0);
-            if solids(self.mercury).any(|b| {
+            if solids(self.mercury, self.venus).any(|b| {
                 b.contains(p, 0.2)
                     && p.y > b.center.y - b.size.y * 0.5 - 0.2
                     && p.y < b.top() + 0.25

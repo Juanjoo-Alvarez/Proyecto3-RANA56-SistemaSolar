@@ -153,6 +153,7 @@ impl Events {
 
 #[derive(Clone, Copy)]
 struct Snapshot {
+    zone: Zone,
     phase: Phase,
     status: Status,
     celebration: f32,
@@ -179,10 +180,23 @@ impl Snapshot {
             &e.local
         };
         Self {
+            zone: e.zone,
             phase: e.phase,
-            status: e.rescue.status,
-            celebration: e.rescue.celebration,
-            collectors: e.rescue.collectors,
+            status: if e.zone == Zone::Venus {
+                e.venus.status
+            } else {
+                e.rescue.status
+            },
+            celebration: if e.zone == Zone::Venus {
+                e.venus.celebration
+            } else {
+                e.rescue.celebration
+            },
+            collectors: if e.zone == Zone::Venus {
+                e.venus.seeds
+            } else {
+                e.rescue.collectors
+            },
             beacons: e.beacons,
             grounded: astronaut.grounded,
             position: astronaut.position,
@@ -228,6 +242,9 @@ impl EventTracker {
         self.brake_cooldown = (self.brake_cooldown - dt).max(0.0);
         self.voice_cooldown = (self.voice_cooldown - dt).max(0.0);
         if let Some(old) = old {
+            if now.zone != old.zone {
+                self.high_five_played = false;
+            }
             if now.phase != old.phase {
                 match now.phase {
                     Phase::Launch => events.push(Cue::Launch),
@@ -278,7 +295,7 @@ impl EventTracker {
                 .iter()
                 .zip(old.collectors)
                 .any(|(&n, o)| n && !o);
-            if collectors_changed {
+            if collectors_changed && now.zone == old.zone {
                 // The third collector resolves the musical phrase with its own cue.
                 events.push(if now.collectors.iter().all(|b| *b) {
                     Cue::Unlock
@@ -289,7 +306,8 @@ impl EventTracker {
             if now.beacons.iter().zip(old.beacons).any(|(&n, o)| n && !o) {
                 events.push(Cue::Collector);
             }
-            if old.celebration < HIGH_FIVE_CONTACT
+            if now.zone == old.zone
+                && old.celebration < HIGH_FIVE_CONTACT
                 && now.celebration >= HIGH_FIVE_CONTACT
                 && matches!(old.status, Status::Celebration)
                 && matches!(now.status, Status::Celebration | Status::Escort)
@@ -301,7 +319,10 @@ impl EventTracker {
             if now.status == Status::Waiting && old.status != Status::Waiting {
                 self.high_five_played = false;
             }
-            if now.status == Status::Complete && old.status != Status::Complete {
+            if now.zone == old.zone
+                && now.status == Status::Complete
+                && old.status != Status::Complete
+            {
                 events.push(Cue::RescueSuccess);
             }
             if now.messages != old.messages {
@@ -329,7 +350,7 @@ impl EventTracker {
             && self.voice_count < 1
         {
             match active.message.speaker.portrait {
-                Portrait::Luma => events.push(Cue::LumaTalk),
+                Portrait::Luma | Portrait::Lirio => events.push(Cue::LumaTalk),
                 Portrait::Brasa => events.push(Cue::BrasaTalk),
                 Portrait::Terminal => {}
             }
@@ -400,7 +421,7 @@ fn environment_track(e: &Expedition) -> usize {
         4
     } else if e.phase == Phase::Orbit {
         0
-    } else if e.zone == Zone::Moon {
+    } else if matches!(e.zone, Zone::Moon | Zone::Venus) {
         1
     } else {
         2
@@ -842,5 +863,34 @@ mod tests {
                 .next()
                 .is_none()
         );
+    }
+    #[test]
+    fn second_rescue_has_its_own_contact_and_changing_planets_is_silent() {
+        let mut t = EventTracker::default();
+        let mut e = Expedition {
+            zone: Zone::Mercury,
+            ..Default::default()
+        };
+        e.rescue.status = Status::Celebration;
+        e.rescue.celebration = 0.5;
+        observe(&mut t, &e, false);
+        e.rescue.celebration = 0.6;
+        assert_eq!(observe(&mut t, &e, false), vec![Cue::HighFive]);
+        e.zone = Zone::Venus;
+        assert!(observe(&mut t, &e, false).is_empty());
+        e.venus.status = Status::Celebration;
+        e.venus.celebration = 0.5;
+        observe(&mut t, &e, false);
+        e.venus.celebration = 0.6;
+        assert_eq!(observe(&mut t, &e, false), vec![Cue::HighFive]);
+        assert!(observe(&mut t, &e, false).is_empty());
+        e.zone = Zone::Mercury;
+        e.rescue.status = Status::Complete;
+        e.rescue.collectors = [true; 3];
+        assert!(observe(&mut t, &e, false).is_empty());
+        e.zone = Zone::Venus;
+        e.phase = Phase::OnFoot;
+        assert_eq!(environment_track(&e), 1);
+        assert_eq!(danger_gain(&e), 0.0);
     }
 }

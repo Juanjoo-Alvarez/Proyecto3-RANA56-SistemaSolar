@@ -10,7 +10,7 @@ use raylib::prelude::*;
 // Camaras reales sobre el mismo rig que se dibuja en el escenario.
 // Las texturas se crean una vez y se reutilizan; no hay retratos bitmap.
 pub struct Portraits {
-    targets: [RenderTexture2D; 3],
+    targets: [RenderTexture2D; 4],
 }
 impl Portraits {
     pub fn load(rl: &mut RaylibHandle, t: &RaylibThread) -> Result<Self, String> {
@@ -18,7 +18,7 @@ impl Portraits {
             rl.load_render_texture(t, 256, 288)
                 .map_err(|e| e.to_string())
         };
-        let mut targets = [make()?, make()?, make()?];
+        let mut targets = [make()?, make()?, make()?, make()?];
         for target in &mut targets {
             target.set_texture_filter(t, TextureFilter::TEXTURE_FILTER_BILINEAR);
         }
@@ -40,9 +40,10 @@ impl Portraits {
                 continue;
             }
             let talking = visible && c.active.as_ref().is_some_and(|a| !a.complete());
+            let scale = if i == 3 { Species::Dart.scale() } else { 1.0 };
             let camera = Camera3D::perspective(
-                v(0.45, 2.38, 4.6),
-                v(0.0, 2.03, 0.0),
+                v(0.45, 2.38, 4.6) * scale,
+                v(0.0, 2.03, 0.0) * scale,
                 v(0.0, 1.0, 0.0),
                 35.0,
             );
@@ -99,6 +100,8 @@ impl Portraits {
                     &a,
                     if i == 0 {
                         Species::Tree
+                    } else if i == 3 {
+                        Species::Dart
                     } else {
                         Species::Tomato
                     },

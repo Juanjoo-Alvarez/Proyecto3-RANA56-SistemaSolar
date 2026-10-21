@@ -1,14 +1,32 @@
 # RANA / 56 — Operación Croac
 
-**Proyecto 3 · 0.4.3 · Audio ambiental**
+**Proyecto 3 · 0.5.0 · Jardines de Nimbo**
 
-**Audio aprobado por Juan.** Disponible desde `dist/RANA56-v0.4.3/`; las carpetas anteriores conservan su sonido.
+Disponible en `dist/RANA56-v0.5.0/`. Se conserva la música ambiental aprobada de la 0.4.3.
 
 Juan Jose Rivas Alvarez · Carnet 24856
 
-Aventura del sistema solar en **Rust y raylib 6.0.0**. Pilota la RANA-56 y explora a pie con **Luma**, una rana de árbol de ojos rojos. En esta versión podrás rescatar a **Brasa**, una rana tomate mecánica atrapada en Mercurio.
+Aventura del sistema solar en **Rust y raylib 6.0.0**. Pilota la RANA-56 y explora a pie con **Luma**, una rana de árbol de ojos rojos. Rescata a **Brasa**, rana tomate mecánica en Mercurio, y a **Lirio**, una pequeña rana dardo azul botánica en Venus.
 
-![Estación Girasol y comunicación 3D de Brasa](screenshots/mercurio-v04.png)
+![Jardines de Nimbo y comunicación 3D de Lirio](screenshots/venus-v05.png)
+
+## Nuevo rescate: Venus
+
+Los Jardines de Nimbo son una estación entre nubes, con invernaderos y plataformas escalonadas. Esta misión combina exploración y saltos, sin el calor de Mercurio.
+
+1. Venus comienza seleccionado. **Triángulo / F** traza la ruta; al llegar, **X / E** desciende. También puedes abrir `SegundoRescate.cmd` para comenzar directamente en el jardín.
+2. Recupera **tres semillas de luz**: debes aterrizar sobre su plataforma y acercarte a ellas. Mantén **X / Espacio** y suelta para saltar más alto; usa los escalones de los invernaderos.
+3. Ve al refugio del fondo, donde espera Lirio. Con las tres semillas, pulsa **Triángulo / E** y avanza la conversación con **X / Enter**.
+4. Lirio, que mide el 72 % de Luma, **salta para chocar su pata**. Sus brazos y dedos conservan su longitud. Su retrato también es el mismo modelo 3D del escenario.
+5. Regresa a la nave y espera a Lirio en la marca de abordaje. **Triángulo / E** para subir y **X / E** para despegar.
+6. En órbita, **Círculo / C** abre el interior. Lirio ocupa su puesto de Venus, permite conversar y añade flores al jardín de la nave. Brasa conserva su puesto y su escudo si ya lo rescataste.
+
+Ambos rescates se pueden completar en cualquier orden durante la misma sesión. **Todavía no hay guardado de partida**: cerrar el juego reinicia los rescates. La música de Venus reutiliza el ambiente tranquilo de la Luna, sin nuevos sonidos estridentes.
+
+![Saludo de Lirio](screenshots/saludo-lirio-v05.png)
+
+![Brasa y Lirio a bordo](screenshots/tripulacion-v05.png)
+
 
 ## Hotfix 0.4.2: un hogar para la tripulación
 
@@ -22,7 +40,7 @@ Desde el sistema solar, pulsa **Círculo / C** para entrar a la **cubierta de tr
 - Hay **ocho puestos reservados**, uno por planeta. Luma está a bordo desde el inicio; el contador muestra los tripulantes rescatados.
 - Brasa aparece con su modelo 3D **después de terminar el rescate y regresar a órbita**. Acércate a su puesto de Mercurio y pulsa **Triángulo / E** para conversar. El diálogo conserva los retratos 3D y se avanza con X / Enter.
 - El piano del interior acompaña la exploración; los motores se silencian y los pasos acompañan a Luma. Pausa, volumen, ayuda y desconexión del mando conservan su comportamiento.
-- Por ahora existe un rescate jugable: Brasa. Los otros siete puestos permanecen vacíos y se completarán al añadir las siguientes misiones. El progreso continúa siendo por sesión.
+- Hay dos rescates jugables: Brasa y Lirio. Los otros seis puestos permanecen reservados para futuras misiones. El progreso continúa siendo por sesión.
 
 **Saludo de cada especie:** se conserva el choque de patas de Brasa que ya fue probado. Al incorporar nuevas ranas, cada saludo tendrá una puesta en escena propia según su altura, anchura y alcance: agacharse, acercarse o saltar cuando corresponda. Se deben conservar las longitudes de brazos y dedos, y sincronizar el sonido con el contacto; no se reutilizará una animación estirada para todas las tallas.
 
@@ -33,7 +51,7 @@ Piano de ataque redondeado, capas armónicas lentas y agua/aire sintetizados muy
 | Archivo / lugar | Duración | Diseño |
 | --- | ---: | --- |
 | `space.wav` / órbita | 2:24 | Piano ocasional y armonía abierta con largos descansos. |
-| `lunar.wav` / Luna | 2:40 | Registro más grave y respuestas muy espaciadas. |
+| `lunar.wav` / Luna y Venus | 2:40 | Registro más grave y respuestas muy espaciadas. |
 | `mercury.wav` / Mercurio | 2:24 | Timbres cálidos sin percusión constante. |
 | `cabin.wav` / interior | 2:32 | Piano más cercano y ambiente suave de agua. |
 | `rescue.wav` / rescate | 0:12 | Resolución breve con piano, sin fanfarria repetitiva. |
@@ -49,11 +67,12 @@ Abre **Options / Esc**, elige **Música** o **Efectos** y usa **cruceta izquierd
 
 La música y los efectos se sintetizaron para este proyecto; los instrumentos son síntesis, no una orquesta grabada. No incluyen audio ni melodías de otros videojuegos. Los WAV y el generador reproducible están incluidos; el juego funciona sin conexión. Si el dispositivo de audio no puede abrirse, se puede seguir jugando.
 
-## Jugar la versión 0.4.3
+## Jugar la versión 0.5.0
 
-La carpeta local **`dist/RANA56-v0.4.3/`** contiene el ejecutable, los recursos y las instrucciones. Cada versión conserva su carpeta independiente.
+La carpeta local **`dist/RANA56-v0.5.0/`** contiene el ejecutable, los recursos y las instrucciones. Cada versión conserva su carpeta independiente.
 
-- **`rana-solar.exe`**: empieza en el sistema solar, con Mercurio seleccionado.
+- **`rana-solar.exe`**: empieza en el sistema solar, con Venus seleccionado.
+- **`SegundoRescate.cmd`**: empieza directamente a pie en Venus.
 - **`PrimerRescate.cmd`**: empieza directamente a pie en Mercurio.
 - **`ExplorarLaLuna.cmd`**: entra al circuito lunar de entrenamiento.
 - **`InteriorDeLaNave.cmd`**: empieza en la cubierta con los puestos vacíos; Círculo / C vuelve al sistema solar para comenzar los rescates.
@@ -151,11 +170,20 @@ cargo clippy --release --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-**41 pruebas** verifican vuelo, mandos, propulsores, saltos, colisiones, cámara, comunicaciones Unicode y retorno de la radio. La prueba del rescate recorre desde la órbita hasta el regreso con Brasa, mediante entradas reales de movimiento e interacción: verifica los tres colectores, la conversación, el choque de patas, el abordaje y la recompensa. También se prueban sombra/calor, reintento sin perder progreso y el aumento real del turbo. La 0.4.1 añade verificación de longitud de brazos/dedos, contacto de palmas, continuidad de la celebración, eventos de audio sin repeticiones, mezcla de música y recuperación de preferencias inválidas.
+**45 pruebas** verifican vuelo, mandos, propulsores, saltos, colisiones, cámara, comunicaciones Unicode y retorno de la radio. La prueba del rescate recorre desde la órbita hasta el regreso con Brasa, mediante entradas reales de movimiento e interacción: verifica los tres colectores, la conversación, el choque de patas, el abordaje y la recompensa. También se prueban sombra/calor, reintento sin perder progreso y el aumento real del turbo. La 0.4.1 añade verificación de longitud de brazos/dedos, contacto de palmas, continuidad de la celebración, eventos de audio sin repeticiones, mezcla de música y recuperación de preferencias inválidas.
 
-La compilación local, las 41 pruebas y Clippy terminaron correctamente. Se añadieron pruebas de un croac por mensaje, aviso de calor espaciado y mezcla gradual de tensión. Las nuevas pruebas comprueban la escala contra los vértices reales del OBJ, la colisión ampliada, el movimiento interior, el registro de tripulantes, la pausa y el regreso a la misma posición orbital, además de pasos y música dentro de la nave. Juan probó y aprobó la nueva dirección musical. Se verificaron formato, hashes, ausencia de saturación y continuidad de los WAV. La revisión visual del interior y del mapeo con mando continúa pendiente de la versión anterior. Las capturas incluidas corresponden a la 0.4.0 y versiones anteriores.
+La compilación, las 45 pruebas y Clippy terminaron correctamente. La nueva prueba completa Venus desde órbita mediante movimiento, saltos e interacciones reales, verifica el regreso con Lirio sin perder a Brasa y la conversación en el interior. Otras pruebas comprueban la altura necesaria para recoger semillas, el contacto del saludo de la rana pequeña y el sonido independiente de ambos rescates. Se conserva el audio aprobado por Juan. El ejecutable completó también el recorrido gráfico automatizado de Venus en 3657 fotogramas, incluida la conversación y el regreso a órbita. Se revisaron capturas del escenario, el saludo y el interior con ambos tripulantes. La verificación física con DualShock 4 de esta versión queda pendiente; las pruebas de entradas y el código mantienen su mapeo.
 
-Comandos para completar la revisión gráfica y de audio y generar nuevas capturas:
+
+Comandos de revisión gráfica (requieren OpenGL):
+
+```powershell
+cargo run --release -- --venus --capture screenshots/venus-v05.png
+cargo run --release -- --venus --celebration-preview --capture screenshots/saludo-lirio-v05.png
+cargo run --release -- --smoke-venus --no-audio
+```
+
+Comandos de regresión de versiones anteriores:
 
 ```powershell
 cargo run --release -- --hidden --no-audio --mercury --radio-preview --pad-preview --capture screenshots/mercurio-v04.png

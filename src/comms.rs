@@ -20,6 +20,7 @@ pub enum Portrait {
     Luma,
     Brasa,
     Terminal,
+    Lirio,
 }
 pub const LUMA: Speaker = Speaker {
     name: "Luma",
@@ -30,6 +31,11 @@ pub const BRASA: Speaker = Speaker {
     name: "Brasa",
     role: "Mecánica · Rana tomate",
     portrait: Portrait::Brasa,
+};
+pub const LIRIO: Speaker = Speaker {
+    name: "Lirio",
+    role: "Botánico · Rana dardo azul",
+    portrait: Portrait::Lirio,
 };
 pub const BASE: Speaker = Speaker {
     name: "Nenúfar",
@@ -221,7 +227,60 @@ impl Comms {
             }
         }
     }
+    fn observe_venus(&mut self, e: &Expedition) {
+        use crate::rescue::Status;
+        if e.phase == Phase::OnFoot && e.venus.status == Status::Waiting {
+            self.radio_from_once("venus_intro", LIRIO, "¡Capitana! Estoy en el refugio del jardín. Recupera las tres semillas de luz de los invernaderos y podremos volver a casa.");
+            if e.astronaut.charging {
+                self.radio_from_once(
+                    "venus_jump",
+                    LUMA,
+                    "Un salto cargado y esos escalones me llevarán hasta las semillas.",
+                );
+            }
+            for (i, &found) in e.venus.seeds.iter().enumerate() {
+                if found && self.seen.insert(["seed1", "seed2", "seed3"][i]) {
+                    self.toast = format!("Semilla de luz {} recuperada", i + 1);
+                    self.toast_left = 3.5;
+                }
+            }
+            if e.venus.unlocked() {
+                self.radio_from_once("venus_ready", LIRIO, "¡Las tres! Ven al refugio, al fondo del jardín. Tengo muchas ganas de ver a la tripulación.");
+            }
+        }
+        if e.venus.status == Status::Celebration && self.seen.insert("venus_greeting") {
+            self.begin_script(&[
+                (
+                    LIRIO,
+                    "¡Luma! Pensé que iba a tener que cultivar una nave para salir de aquí.",
+                ),
+                (
+                    LUMA,
+                    "Tu lugar sigue esperándote a bordo, Lirio. ¡Choca esa pata!",
+                ),
+                (LIRIO, "¡Voy! Aunque tenga que saltar un poquito."),
+            ]);
+        }
+        if e.venus.status == Status::Escort {
+            self.radio_from_once(
+                "venus_escort",
+                LIRIO,
+                "Te sigo hasta la nave. ¡Estas semillas harán florecer nuestro jardín!",
+            );
+        }
+        if e.venus.complete() {
+            self.radio_from_once(
+                "venus_home",
+                LIRIO,
+                "¡En casa! Ven a visitarme: ya estoy cuidando las plantas de nuestra nave.",
+            );
+        }
+    }
     pub fn observe(&mut self, e: &Expedition, before: [bool; 3]) {
+        if e.zone == crate::expedition::Zone::Venus {
+            self.observe_venus(e);
+            return;
+        }
         if e.zone == crate::expedition::Zone::Mercury {
             self.observe_rescue(e);
             return;

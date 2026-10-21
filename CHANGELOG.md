@@ -1,5 +1,16 @@
 # Historial de versiones
 
+## 0.5.0 — Jardines de Nimbo
+
+- Segundo rescate en Venus: tres semillas de luz en plataformas e invernaderos, diálogo, saludo, escolta y regreso a órbita.
+- Lirio, rana dardo azul al 72 % de la altura de Luma; modelo y retrato 3D, saludo con salto y brazos de longitud fija.
+- Puesto de Venus ocupado tras el rescate, conversación y nuevas flores en la nave. Se conserva Brasa y su recompensa.
+- Venus seleccionado al iniciar; acceso directo con `SegundoRescate.cmd` o `--venus`. Recorrido automatizado con `--smoke-venus`.
+- Música ambiental aprobada sin modificaciones; Venus comparte la pista lunar y tiene sus propios eventos de recogida, diálogo y palmada.
+- 45 pruebas, Clippy y compilación; recorrido gráfico completo de Venus (3657 fotogramas) y capturas revisadas de escenario, saludo e interior. Prueba física con mando pendiente.
+- Sin guardado de partida todavía; progreso por sesión.
+- Carpeta independiente `dist/RANA56-v0.5.0`, sin ZIP.
+
 ## 0.4.3 — Audio ambiental aprobado
 
 - Cinco piezas de ambient espacial y naturaleza sintetizada, con piano suave y descansos largos; capa adicional de tensión gradual por calor.
