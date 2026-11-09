@@ -1,5 +1,21 @@
 # Historial de versiones
 
+## En desarrollo — Renderizado por software
+
+- Panel F6 / F7 para comparar descarte por objeto; contadores y escena congelada.
+- Comparacion reproducible en Tierra, Venus y Luna: imagenes identicas y menos triangulos procesados.
+- Tabla de evaluacion y guia de defensa tecnica en README; 57 pruebas.
+
+- Optimización de superficies: aritmética Rust directa, rotación por objeto, rasterizado por franjas, píxeles opacos y descarte de caras ocultas de esferas.
+- Medianas históricas a 640 × 400: Venus 49.93 ms, Mercurio 45.47 ms y Luna 40.77 ms de rasterizado por cuadro; entre 46 % y 55 % menos que la referencia.
+- Script reproducible `tools/medir_superficies.ps1` y pruebas de equivalencia de imagen/profundidad.
+
+- Pipeline CPU propio: OBJ/MTL, geometría, transformaciones, recorte, perspectiva, rasterización, profundidad y shaders Rust.
+- Migradas todas las vistas 3D y retratos; se conserva la lógica de juego.
+- Framebuffer 1440 × 900, retratos 256 × 288 y medición de tiempo de rasterizado.
+- 55 pruebas automatizadas; esta versión aún no tiene distribución empaquetada.
+
+
 ## 0.5.0 — Jardines de Nimbo
 
 - Segundo rescate en Venus: tres semillas de luz en plataformas e invernaderos, diálogo, saludo, escolta y regreso a órbita.

@@ -1,4 +1,6 @@
+use crate::math::Vector3;
 use crate::simulation::*;
+use crate::software::{Draw3D, Model};
 use raylib::prelude::*;
 
 // Dos escalas de escena: planetas legibles en órbita y una nave habitable en tierra.
@@ -59,7 +61,7 @@ impl Pose {
     }
 }
 
-pub fn draw<D: RaylibDraw3D>(d: &mut D, model: &Model, world: &World, scale: f32) {
+pub fn draw<D: Draw3D>(d: &mut D, model: &Model, world: &World, scale: f32) {
     let pose = Pose::new(world, scale);
     d.draw_model_ex(
         model,
@@ -85,7 +87,7 @@ pub fn draw<D: RaylibDraw3D>(d: &mut D, model: &Model, world: &World, scale: f32
     }
 }
 
-pub fn boarding_marker<D: RaylibDraw3D>(d: &mut D) {
+pub fn boarding_marker<D: Draw3D>(d: &mut D) {
     let center = crate::astronaut::SPAWN;
     let mint = Color::new(125, 238, 202, 255);
     d.draw_circle3D(

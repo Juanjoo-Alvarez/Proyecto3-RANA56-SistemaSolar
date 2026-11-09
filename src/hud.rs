@@ -1,3 +1,4 @@
+use crate::software::Camera3D;
 use crate::{
     comms::{Comms, Kind, Portrait},
     controls::Controls,

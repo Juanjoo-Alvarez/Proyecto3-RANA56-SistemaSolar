@@ -1,3 +1,5 @@
+use crate::math::Vector3;
+use crate::software::{Camera3D, Draw3D};
 use crate::{
     expedition::*,
     scene::{ACCENT, Assets},
@@ -48,9 +50,9 @@ pub fn camera(e: &Expedition) -> Camera3D {
         )
     }
 }
-fn triangle<D: RaylibDraw3D>(d: &mut D, a: Vector3, b: Vector3, c: Vector3, color: Color) {
+fn triangle<D: Draw3D>(d: &mut D, a: Vector3, b: Vector3, c: Vector3, color: Color) {
     d.draw_triangle3D(a, b, c, color);
-    d.draw_triangle3D(c, b, a, color);
+    // Software triangles are already two-sided; avoid coplanar duplicates.
 }
 pub fn draw(d: &mut RaylibDrawHandle, assets: &mut Assets, e: &Expedition, camera: Camera3D) {
     let (w, h) = (d.get_screen_width(), d.get_screen_height());
@@ -65,7 +67,15 @@ pub fn draw(d: &mut RaylibDrawHandle, assets: &mut Assets, e: &Expedition, camer
     );
     assets.prepare(camera, e.local.time);
     {
-        let mut s = d.begin_mode3D(camera);
+        let mut s = crate::software::Frame::new(
+            d,
+            camera,
+            assets.display.clone(),
+            assets.kind.clone(),
+            assets.time,
+            d.get_screen_width(),
+            d.get_screen_height(),
+        );
         for i in 0..400 {
             let a = i as f32 * 2.39996;
             let y = (i as f32 * 0.618).fract();

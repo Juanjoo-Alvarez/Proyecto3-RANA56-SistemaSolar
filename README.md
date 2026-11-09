@@ -1,5 +1,111 @@
 # RANA / 56 — Operación Croac
 
+## Evaluación según la rúbrica
+
+**Juan Jose Rivas Alvarez · 24856.** Esta tabla es una solicitud de evaluación, no una nota garantizada. Los puntos dependen de la demostración y de poder explicar el código. Se utilizó asistencia de IA (Codex) para implementación, pruebas y montaje del video.
+
+| Característica solicitada | Puntos máximos | Evidencia y forma de demostrarla |
+| --- | ---: | --- |
+| Cinco planetas distinguibles | 50 | Mercurio (roca), Venus (nubes), Tierra (continentes/nubes), Júpiter (bandas) y Saturno (bandas/anillos). Elegir destinos 1, 2, 3, 5 y 6; acercarse, rodear y alejarse. Código: `src/scene.rs`, `src/simulation.rs`, `src/software.rs`. Pendiente validar el recorrido cercano completo y rendimiento de los cinco; el video continuo cubre Tierra. |
+| Cuatro shaders propios diferentes | 24 | `software::shade`: Sol con ruido animado, roca con ruido, Tierra con umbrales de continentes/nubes y gigante gaseoso con bandas. Explicar las diferencias de algoritmo; variantes de color no cuentan como shaders nuevos. |
+| Shader animado | 8 | Observar el Sol sin `--freeze-scene`; explicar cómo `time` desplaza el ruido. Puede ser uno de los cuatro anteriores. |
+| Generación propia de geometría | 10 | `Model::sphere` genera vértices y triángulos antes del rasterizado; cubos y cilindros también se triangulan en CPU. No se reclama deformación ni LOD. |
+| Controles progresivos | 8 | `World::update` y `World::steer`: aceleración, frenado y suavizado dependientes de `dt`. Mostrar W/S, flechas, X y stick izquierdo suavizado; explicar las pruebas de independencia del paso temporal. |
+| Colisión básica con planetas | 4 | Acercarse de frente sin atravesar el planeta. Explicar `World::separate` y el radio más margen. |
+| Descarte de objetos fuera de vista | 7 | Esfera envolvente contra seis planos antes de transformar/generar triángulos. F6 muestra contadores y F7 alterna el descarte por objeto. Comparación reproducible abajo. |
+| **Subtotal técnico potencial** | **111** | Incluye criterios pendientes de validación presencial; no equivale a puntos ya otorgados. |
+| Coherencia visual y claridad de experiencia | hasta 10 adicionales | Mostrar controles, navegación y tráiler. Valoración del profesor. |
+
+No se solicitan puntos por mapeo de normales, deformación planetaria, gravedad durante el vuelo, LOD, modo local de navegación planetaria, distribución por ruido sobre planetas ni orientación de objetos sobre una esfera que rota. Los edificios y plantas de las misiones separadas no se incluyen automáticamente en los 20 puntos de modelos sobre planetas. Los rescates son contenido adicional, no un requisito mínimo.
+
+### Demostración del descarte
+
+Desde la raíz del proyecto:
+
+```powershell
+./target/release/rana-solar.exe --planet 3 --freeze-scene --renderer-stats
+```
+
+Pulsa **F7** para comparar en la misma escena congelada. **F6** muestra/oculta el panel. Sin `--freeze-scene` puedes volar y observar cambios de los contadores. La congelación usa `dt = 0`; no mide el rendimiento del juego en movimiento.
+
+- **Objetos evaluados:** llamadas a modelos, cubos y cilindros, incluidas instancias repetidas. No son planetas únicos; no incluye líneas ni puntos.
+- **Objetos rechazados:** volúmenes completamente fuera del campo de visión.
+- **Triángulos evitados por objeto:** geometría original omitida antes de transformarla/generarla. No coincide necesariamente con la diferencia del siguiente contador: algunas caras se descartarían después por orientación.
+- **Triángulos enviados a recorte:** entradas reales a la etapa por triángulo, incluidas las que están completamente dentro y evitan cálculos de recorte.
+- **Triángulos enviados a rasterizar:** resultado tras recorte. Se conserva al alternar el descarte porque los objetos omitidos eran invisibles; el ahorro ocurre antes.
+
+Los contadores son de la escena principal del último cuadro, no de retratos ni acumulados. F7 no desactiva el recorte por triángulo ni el descarte de caras de esferas.
+
+```powershell
+cargo build --release --offline
+./tools/comparar_descarte.ps1
+```
+
+El script conserva logs, capturas y `target/culling-bench/comparacion.csv`. Exige PNG idénticos por SHA256 y menos triángulos enviados a recorte; termina con error si no se cumple. Demuestra ahorro de trabajo, no una promesa de FPS.
+
+Resultado local del 9 de noviembre de 2026: 30 cuadros por ejecución, escenas congeladas a 1440 × 900.
+
+| Escena | Objetos rechazados / evaluados | Triángulos a recorte sin descarte | Con descarte | Reducción | Imagen final |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Tierra | 162 / 291 | 17 112 | 12 683 | 25.9 % | PNG idéntico |
+| Venus | 157 / 437 | 30 145 | 20 134 | 33.2 % | PNG idéntico |
+| Luna | 264 / 348 | 17 957 | 11 738 | 34.6 % | PNG idéntico |
+
+### Entrega y explicación técnica
+
+- Pipeline CPU, OBJ/MTL, transformaciones, profundidad y shaders: implementados. Explicar `src/software.rs` y `src/math.rs`; la nave se carga desde `assets/RANA_56.obj`.
+- Sol, nave controlable, órbitas y rotación temporal: implementados. Explicar `PLANETS`, `Planet::position` y las transformaciones de `scene::draw_scene`.
+- Vuelo sin cambio de escena: `output/video/RANA56-recorrido-clase.mp4` conserva el recorrido continuo; `output/video/RANA56-TRAILER.mp4` es una presentación adicional con cortes. Son capturas por fotogramas, no pruebas de FPS en tiempo real.
+- Entregar fuentes, recursos, instrucciones y videos. **Pendiente empaquetar y probar una distribución del renderizador CPU**; no presentar una distribución GPU antigua para esta evaluación.
+- Preparar un cambio en vivo: `radius` o `speed` en `src/simulation.rs`, o frecuencia/intensidad del ruido en `software::shade`. Recompilar y explicar el resultado. Declarar las contribuciones propias y la asistencia de IA.
+
+
+## Renderizador por software — versión de trabajo
+
+La copia de desarrollo ya dibuja **todas las vistas 3D en CPU**, incluyendo órbita, Luna, Mercurio, Venus, interior y retratos. Las secciones de versiones anteriores y sus capturas describen la edición 0.5.0 con GPU; no representan esta nueva implementación. No se ha generado todavía una nueva carpeta `dist`.
+
+`src/software.rs` contiene el pipeline propio:
+
+1. Lectura OBJ/MTL: posiciones, normales, índices positivos/negativos, triangulación en abanico y colores difusos. El cargador está orientado a las caras convexas del modelo incluido; no admite texturas MTL ni polígonos cóncavos arbitrarios.
+2. Generación propia de esferas y triangulación de cubos y cilindros.
+3. Transformación de modelo (escala, rotación de eje/ángulo y traslación), normales con escala inversa, base de vista y proyección en perspectiva. Estas operaciones se expresan algebraicamente en vectores, sin delegarlas a matrices de raylib.
+4. Recorte Sutherland–Hodgman contra los seis planos del volumen visible.
+5. Rasterización de triángulos por coordenadas baricéntricas, interpolación corregida por perspectiva y prueba de profundidad en un búfer propio.
+6. Shaders de fragmentos Rust en CPU: Sol animado, superficies rocosas, Tierra con continentes y nubes, atmósfera de Venus y bandas de gigantes gaseosos. Son nuevas aproximaciones visuales; no reproducen exactamente el antiguo GLSL.
+7. Presentación de un framebuffer RGBA mediante una textura 2D. Raylib conserva ventana, entrada, audio y composición 2D de interfaz; no carga modelos ni calcula cámaras, profundidad o shaders 3D. OpenGL sigue siendo necesario para presentar la imagen, no para renderizar la geometría.
+
+Resolución interna: **1440 × 900** para escenarios y **256 × 288** para retratos, con corrección de proporciones al redimensionar la ventana. El framebuffer usa filtrado bilineal al redimensionar; no es un sistema de niveles de detalle. La transparencia usa mezcla alfa sencilla, sin ordenamiento global de superficies transparentes. Los GLSL antiguos se conservan como referencia y ya no se cargan.
+
+Al salir, la consola imprime el tiempo medio de rasterizado de la escena y los triángulos rasterizados del último cuadro. El tiempo no incluye interfaz, presentación, audio ni retratos y no debe interpretarse como FPS total. Hay rechazo temprano por esfera envolvente para modelos y recorte por triángulo. Las comparaciones de descarte se ejecutan con `tools/comparar_descarte.ps1`; tampoco se reclama LOD, mapeo de normales ni gravedad planetaria. Las esferas auxiliares se reutilizan desde una caché.
+
+Optimización de superficies (5 de noviembre de 2026): cálculo vectorial directo en Rust para líneas y geometría, rotación precalculada por objeto, recorrido de triángulos por franjas horizontales, escritura directa de píxeles opacos y descarte de caras ocultas de esferas opacas vistas desde fuera. No se redujo la resolución ni la geometría; las colisiones y misiones conservan su lógica. Las esferas transparentes, vistas interiores y modelos OBJ siguen siendo de dos caras.
+
+Comparación histórica anterior al aumento de resolución, en release, 640 × 400, inicio de cada escenario, sin audio y ventana oculta. Referencia: una muestra de 60 cuadros; optimizado: mediana de tres muestras de 60 cuadros, ejecutadas secuencialmente sin compilaciones simultáneas:
+
+| Escenario | Antes (ms/cuadro) | Después (ms/cuadro) | Reducción |
+| --- | ---: | ---: | ---: |
+| Venus | 111.70 | 49.93 | 55 % |
+| Mercurio | 83.74 | 45.47 | 46 % |
+| Luna | 76.25 | 40.77 | 47 % |
+
+Son tiempos del rasterizado de la escena: excluyen presentación, interfaz, retratos y audio. No equivalen a FPS completos ni garantizan el rendimiento durante toda la misión. Las superficies mejoraron, pero todavía no alcanzan el presupuesto de 16.7 ms necesario para 60 FPS. Las capturas y registros locales están en `target/surface-bench/` (no versionados).
+
+Para repetir la medición: compila con `cargo build --release --offline` y ejecuta `./tools/medir_superficies.ps1 -Frames 120 -Repeticiones 3`. El script imprime mediana, mínimo y máximo, conserva logs y genera capturas.
+
+Verificación:
+
+```powershell
+cargo test --release --offline
+cargo clippy --release --offline --all-targets -- -D warnings
+cargo run --release -- --hidden --no-audio --overview --frames 3 --capture target/software-orbita.png
+cargo run --release -- --hidden --no-audio --venus --radio-preview --frames 3 --capture target/software-venus.png
+```
+
+Las 45 pruebas de jugabilidad se mantienen; cinco pruebas adicionales verifican profundidad independiente del orden de dibujo, recorte del plano cercano, profundidad en perspectiva, carga OBJ/MTL sin contexto gráfico y transformaciones de modelo. Dos pruebas adicionales comparan el rasterizado por franjas y el descarte de caras contra sus referencias, incluyendo recorte, triángulos estrechos, transparencias y vistas interiores. Total actual: **57 pruebas**. La prueba de descarte verifica igualdad de imagen y profundidad, contadores y menor trabajo, incluyendo objetos que cruzan los bordes de la vista. Una prueba adicional comprueba que la cámara lunar no termine dentro del personaje cuando hay un contenedor detrás. La asistencia de IA (Codex) se utilizó para implementar y verificar esta migración; Juan Jose Rivas Alvarez (24856) debe revisar y poder explicar el pipeline para la entrega.
+
+---
+
+
 **Proyecto 3 · 0.5.0 · Jardines de Nimbo**
 
 Disponible en `dist/RANA56-v0.5.0/`. Se conserva la música ambiental aprobada de la 0.4.3.

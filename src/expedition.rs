@@ -1,4 +1,5 @@
 use crate::astronaut::{Astronaut, SPAWN, WalkInput};
+use crate::math::Vector3;
 use crate::simulation::*;
 use raylib::prelude::*;
 

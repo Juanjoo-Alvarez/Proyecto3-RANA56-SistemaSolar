@@ -1,3 +1,5 @@
+use crate::math::Vector3;
+use crate::software::{Camera3D, Draw3D};
 use crate::{
     astronaut::{Astronaut, Platform, SPAWN, WalkInput},
     expedition::{Expedition, Phase},
@@ -261,7 +263,15 @@ pub fn draw(d: &mut RaylibDrawHandle, assets: &mut Assets, e: &Expedition, camer
     );
     assets.prepare(camera, e.local.time);
     assets.kind(11);
-    let mut s = d.begin_mode3D(camera);
+    let mut s = crate::software::Frame::new(
+        d,
+        camera,
+        assets.display.clone(),
+        assets.kind.clone(),
+        assets.time,
+        d.get_screen_width(),
+        d.get_screen_height(),
+    );
     let ivory = Color::new(218, 214, 185, 255);
     let green = Color::new(72, 132, 113, 255);
     let gold = Color::new(245, 200, 103, 255);

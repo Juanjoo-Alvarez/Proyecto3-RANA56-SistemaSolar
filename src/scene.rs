@@ -1,4 +1,6 @@
+use crate::math::Vector3;
 use crate::simulation::*;
+use crate::software::{Camera3D, Draw3D, Model};
 use raylib::prelude::*;
 use std::f32::consts::TAU;
 use std::path::Path;
@@ -10,10 +12,9 @@ pub struct Assets {
     pub sphere: Model,
     pub ship: Model,
     pub frog_mesh: Model,
-    shader: Shader,
-    kind_loc: i32,
-    time_loc: i32,
-    eye_loc: i32,
+    pub display: std::rc::Rc<std::cell::RefCell<crate::software::Display>>,
+    pub kind: std::rc::Rc<std::cell::Cell<i32>>,
+    pub time: f32,
     stars: Vec<(Vector3, Color)>,
     rocks: Vec<(Vector3, f32)>,
 }
@@ -23,44 +24,12 @@ fn random(seed: &mut u32) -> f32 {
 }
 impl Assets {
     pub fn load(rl: &mut RaylibHandle, thread: &RaylibThread, root: &Path) -> Result<Self, String> {
-        let shader = rl.load_shader_from_memory(
-            thread,
-            Some(include_str!("../assets/shaders/world.vs")),
-            Some(include_str!("../assets/shaders/world.fs")),
-        );
-        let kind_loc = shader.get_shader_location("bodyKind");
-        let time_loc = shader.get_shader_location("simTime");
-        let eye_loc = shader.get_shader_location("eyePos");
-        if kind_loc < 0 || eye_loc < 0 {
-            return Err(
-                "No se pudo compilar el shader de los planetas (requiere OpenGL 3.3).".into(),
-            );
-        }
-        let mesh = Mesh::gen_mesh_sphere(thread, 1.0, 48, 80);
-        // Se transfiere la propiedad de la malla al Model; Model la libera al salir.
-        let mut sphere = rl
-            .load_model_from_mesh(thread, unsafe { mesh.make_weak() })
-            .map_err(|e| e.to_string())?;
-        let path = root.join("assets/RANA_56.obj");
-        if !path.is_file() {
-            return Err(format!("No se encontro la nave: {}", path.display()));
-        }
-        let mut ship = rl
-            .load_model(thread, &path.to_string_lossy())
-            .map_err(|e| e.to_string())?;
-        for material in sphere.materials_mut() {
-            material.set_shader(&shader);
-        }
-        for material in ship.materials_mut() {
-            material.set_shader(&shader);
-        }
-        let frog_mesh = Mesh::gen_mesh_sphere(thread, 1.0, 10, 12);
-        let mut frog_mesh = rl
-            .load_model_from_mesh(thread, unsafe { frog_mesh.make_weak() })
-            .map_err(|e| e.to_string())?;
-        for material in frog_mesh.materials_mut() {
-            material.set_shader(&shader);
-        }
+        let sphere = Model::sphere(24, 40);
+        let ship = Model::load(&root.join("assets/RANA_56.obj"))?;
+        let frog_mesh = Model::sphere(10, 12);
+        let display = std::rc::Rc::new(std::cell::RefCell::new(crate::software::Display::new(
+            rl, thread, 1440, 900,
+        )?));
         let mut seed = 24856;
         let stars = (0..1600)
             .map(|_| {
@@ -92,20 +61,18 @@ impl Assets {
             sphere,
             ship,
             frog_mesh,
-            shader,
-            kind_loc,
-            time_loc,
-            eye_loc,
+            display,
+            kind: std::rc::Rc::new(std::cell::Cell::new(11)),
+            time: 0.0,
             stars,
             rocks,
         })
     }
     pub(crate) fn kind(&mut self, kind: i32) {
-        self.shader.set_shader_value(self.kind_loc, kind);
+        self.kind.set(kind);
     }
-    pub(crate) fn prepare(&mut self, camera: Camera3D, time: f32) {
-        self.shader.set_shader_value(self.eye_loc, camera.position);
-        self.shader.set_shader_value(self.time_loc, time);
+    pub(crate) fn prepare(&mut self, _camera: Camera3D, time: f32) {
+        self.time = time;
     }
 }
 
@@ -141,6 +108,7 @@ pub fn project(point: Vector3, camera: Camera3D, width: i32, height: i32) -> Opt
     ))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn draw_scene(
     d: &mut RaylibDrawHandle,
     assets: &mut Assets,
@@ -148,6 +116,7 @@ pub fn draw_scene(
     camera: Camera3D,
     orbits: bool,
     overview: bool,
+    cinematic: bool,
     ui: &crate::ui::Ui,
 ) {
     let (w, h) = (d.get_screen_width(), d.get_screen_height());
@@ -172,12 +141,17 @@ pub fn draw_scene(
             Color::new(245, 119, 25, 0),
         );
     }
-    assets
-        .shader
-        .set_shader_value(assets.eye_loc, camera.position);
-    assets.shader.set_shader_value(assets.time_loc, world.time);
+    assets.prepare(camera, world.time);
     {
-        let mut space = d.begin_mode3D(camera);
+        let mut space = crate::software::Frame::new(
+            d,
+            camera,
+            assets.display.clone(),
+            assets.kind.clone(),
+            assets.time,
+            d.get_screen_width(),
+            d.get_screen_height(),
+        );
         for (i, (direction, color)) in assets.stars.iter().enumerate() {
             let pos = camera.position + *direction * 500.0;
             space.draw_point3D(pos, *color);
@@ -243,6 +217,9 @@ pub fn draw_scene(
         );
         assets.kind(9);
         crate::ship::draw(&mut space, &assets.ship, world, crate::ship::ORBIT_SCALE);
+    }
+    if cinematic {
+        return;
     }
     // Rotulos con ubicaciones alternativas para evitar superposiciones en el mapa.
     if world.selected == 8
@@ -342,7 +319,7 @@ pub fn draw_scene(
     }
 }
 
-fn rings<D: RaylibDraw3D>(d: &mut D, pos: Vector3, radius: f32, icy: bool) {
+fn rings<D: Draw3D>(d: &mut D, pos: Vector3, radius: f32, icy: bool) {
     let bands = if icy { 3 } else { 10 };
     for band in 0..bands {
         if !icy && band == 6 {
@@ -371,7 +348,7 @@ fn rings<D: RaylibDraw3D>(d: &mut D, pos: Vector3, radius: f32, icy: bool) {
             let p1 = point(a, outer);
             let p2 = point(b, outer);
             let p3 = point(b, inner);
-            for (a, b, c) in [(p0, p1, p2), (p0, p2, p3), (p2, p1, p0), (p3, p2, p0)] {
+            for (a, b, c) in [(p0, p1, p2), (p0, p2, p3)] {
                 d.draw_triangle3D(a, b, c, color);
             }
         }

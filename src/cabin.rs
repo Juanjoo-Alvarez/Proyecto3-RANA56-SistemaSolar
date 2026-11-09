@@ -1,3 +1,5 @@
+use crate::math::Vector3;
+use crate::software::{Camera3D, Draw3D};
 use crate::{
     astronaut::{Astronaut, WalkInput},
     comms::{self, Comms},
@@ -148,7 +150,15 @@ pub fn draw(
     );
     assets.prepare(camera, cabin.time);
     {
-        let mut s = d.begin_mode3D(camera);
+        let mut s = crate::software::Frame::new(
+            d,
+            camera,
+            assets.display.clone(),
+            assets.kind.clone(),
+            assets.time,
+            d.get_screen_width(),
+            d.get_screen_height(),
+        );
         for i in 0..240 {
             let x = ((i * 47) % 220) as f32 - 110.0;
             let y = ((i * 31) % 100) as f32 - 20.0;

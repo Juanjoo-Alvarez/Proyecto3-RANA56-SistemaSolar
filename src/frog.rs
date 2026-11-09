@@ -1,3 +1,5 @@
+use crate::math::Vector3;
+use crate::software::{Draw3D, Model};
 use crate::{astronaut::Astronaut, simulation::*};
 use raylib::prelude::*;
 
@@ -106,10 +108,10 @@ fn hand_rotation(yaw: f32, side: f32, salute: f32) -> (Vector3, f32) {
     (axis, (2.0 * n.atan2(cy * cx)).to_degrees())
 }
 
-pub fn draw<D: RaylibDraw3D>(d: &mut D, mesh: &Model, a: &Astronaut) {
+pub fn draw<D: Draw3D>(d: &mut D, mesh: &Model, a: &Astronaut) {
     draw_actor(d, mesh, a, Species::Tree, &Pose::default());
 }
-pub fn draw_actor<D: RaylibDraw3D>(
+pub fn draw_actor<D: Draw3D>(
     d: &mut D,
     mesh: &Model,
     a: &Astronaut,

@@ -1,3 +1,4 @@
+use crate::math::Vector3;
 use raylib::prelude::*;
 use std::f32::consts::{PI, TAU};
 

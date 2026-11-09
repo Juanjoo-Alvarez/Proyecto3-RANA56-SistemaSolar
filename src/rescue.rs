@@ -1,8 +1,8 @@
+use crate::math::Vector3;
 use crate::{
     astronaut::{Astronaut, SPAWN, WalkInput},
     simulation::*,
 };
-use raylib::prelude::*;
 
 pub const COLLECTORS: [Vector3; 3] = [
     Vector3 {

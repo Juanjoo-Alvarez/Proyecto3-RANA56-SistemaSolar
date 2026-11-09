@@ -1,3 +1,7 @@
+mod math;
+mod recording;
+mod software;
+use crate::software::Camera3D;
 mod astronaut;
 mod audio;
 mod cabin;
@@ -21,6 +25,12 @@ use simulation::*;
 use std::path::PathBuf;
 
 struct Options {
+    no_object_culling: bool,
+    renderer_stats: bool,
+    freeze_scene: bool,
+    record_tour: Option<PathBuf>,
+    record_video: Option<PathBuf>,
+    cinematic: bool,
     cabin: bool,
     crew_preview: bool,
     frames: Option<u32>,
@@ -52,6 +62,12 @@ struct Options {
 }
 fn options() -> Result<Options, String> {
     let mut opts = Options {
+        no_object_culling: false,
+        renderer_stats: false,
+        freeze_scene: false,
+        record_tour: None,
+        record_video: None,
+        cinematic: false,
         cabin: false,
         crew_preview: false,
         frames: None,
@@ -84,6 +100,14 @@ fn options() -> Result<Options, String> {
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
+            "--no-object-culling" => opts.no_object_culling = true,
+            "--renderer-stats" => opts.renderer_stats = true,
+            "--freeze-scene" => opts.freeze_scene = true,
+            "--record-video" => {
+                opts.record_video = Some(args.next().ok_or("Falta ruta MP4")?.into())
+            }
+            "--cinematic" => opts.cinematic = true,
+            "--record-tour" => opts.record_tour = Some(args.next().ok_or("Falta ruta MP4")?.into()),
             "--cabin" => opts.cabin = true,
             "--crew-preview" => {
                 opts.cabin = true;
@@ -164,7 +188,7 @@ fn options() -> Result<Options, String> {
             }
             "--help" => {
                 println!(
-                    "RANA / 56 - Operacion Croac v0.5.0\ncargo run --release\nOpciones: --frames N --capture archivo.png --overview --planet 1..8 --hidden --lunar --near-moon --controller-report --smoke-tour --flight-check --walking --portrait --radio-preview --dialogue-preview --compact --pad-preview --mercury --venus --smoke-venus --smoke-rescue --celebration-preview --celebration-demo --audio-menu-preview --audio-check --mute --no-audio --cabin --crew-preview"
+                    "RANA / 56 - Operacion Croac v0.5.0\ncargo run --release\nOpciones: --renderer-stats --no-object-culling --freeze-scene --record-video archivo.mp4 --cinematic --record-tour archivo.mp4 --frames N --capture archivo.png --overview --planet 1..8 --hidden --lunar --near-moon --controller-report --smoke-tour --flight-check --walking --portrait --radio-preview --dialogue-preview --compact --pad-preview --mercury --venus --smoke-venus --smoke-rescue --celebration-preview --celebration-demo --audio-menu-preview --audio-check --mute --no-audio --cabin --crew-preview"
                 );
                 std::process::exit(0);
             }
@@ -182,6 +206,16 @@ fn options() -> Result<Options, String> {
     }
     if (opts.audio_check || opts.celebration_demo) && opts.frames.is_none() {
         opts.frames = Some(360);
+    }
+    if opts.record_tour.is_some() {
+        opts.frames = Some(recording::FRAMES);
+        opts.no_audio = true;
+        opts.hidden = true;
+    }
+    if opts.record_video.is_some() {
+        opts.frames.get_or_insert(360);
+        opts.no_audio = true;
+        opts.hidden = true;
     }
     Ok(opts)
 }
@@ -209,7 +243,6 @@ fn run() -> Result<(), String> {
         )
         .title("RANA-56 | Operacion Croac v0.5.0 - Proyecto 3")
         .resizable()
-        .msaa_4x()
         .log_level(TraceLogLevel::LOG_WARNING);
     if opts.hidden {
         builder.hidden();
@@ -217,7 +250,7 @@ fn run() -> Result<(), String> {
     let (mut rl, thread) = builder.build();
     rl.set_exit_key(None);
     rl.set_target_fps(
-        if opts.smoke_tour || opts.smoke_rescue || opts.smoke_venus {
+        if opts.frames.is_some() || opts.smoke_tour || opts.smoke_rescue || opts.smoke_venus {
             0
         } else {
             60
@@ -225,6 +258,7 @@ fn run() -> Result<(), String> {
     );
     rl.set_window_min_size(1280, 800);
     let mut assets = scene::Assets::load(&mut rl, &thread, &root)?;
+    assets.display.borrow_mut().object_culling = !opts.no_object_culling;
     let mut portraits = portraits::Portraits::load(&mut rl, &thread)?;
     let ui = ui::Ui::load(&mut rl, &thread, &root)?;
     let settings_path = root.join("audio-settings.txt");
@@ -352,6 +386,7 @@ fn run() -> Result<(), String> {
     }
     let mut overview = opts.overview;
     let mut orbits = true;
+    let mut renderer_stats = opts.renderer_stats;
     let mut help = false;
     let mut diagnostic = false;
     let mut menu = if opts.audio_menu_preview { 3 } else { 0i32 };
@@ -367,6 +402,17 @@ fn run() -> Result<(), String> {
         expedition.phase = expedition::Phase::Orbit;
         expedition.toggle_cabin(&mut world);
     }
+    if opts.record_tour.is_some() {
+        recording::setup(&mut world);
+        expedition.phase = expedition::Phase::Orbit;
+        overview = false;
+    }
+    let mut recorder = opts
+        .record_tour
+        .as_ref()
+        .or(opts.record_video.as_ref())
+        .map(|path| recording::Recorder::new(path, rl.get_screen_width(), rl.get_screen_height()))
+        .transpose()?;
     let mut was_focused = true;
     let mut camera = if expedition.phase == expedition::Phase::Cabin {
         expedition.cabin.camera()
@@ -380,9 +426,22 @@ fn run() -> Result<(), String> {
     let mut smoke_conversation = false;
     let mut venus_trial = venus::Pilot::default();
     let mut rescue_trial = rescue::RescuePilot::default();
+    let mut frame_times = Vec::new();
     while !rl.window_should_close() {
+        let frame_started = std::time::Instant::now();
         use KeyboardKey::*;
-        let dt = if opts.frames.is_some() {
+        if rl.is_key_pressed(KEY_F6) {
+            renderer_stats = !renderer_stats;
+        }
+        if rl.is_key_pressed(KEY_F7) {
+            let mut display = assets.display.borrow_mut();
+            display.object_culling = !display.object_culling;
+        }
+        let dt = if opts.freeze_scene {
+            0.0
+        } else if opts.record_tour.is_some() || opts.record_video.is_some() {
+            1.0 / recording::FPS as f32
+        } else if opts.frames.is_some() {
             1.0 / 60.0
         } else {
             rl.get_frame_time().min(0.05)
@@ -635,6 +694,35 @@ fn run() -> Result<(), String> {
                 }
             }
         }
+        if opts.cinematic && opts.record_video.is_some() && !opts.celebration_demo {
+            if expedition.phase == expedition::Phase::OnFoot {
+                walk = if opts.venus {
+                    venus_trial.input(&expedition.astronaut, &expedition.venus, dt)
+                } else if opts.mercury {
+                    rescue_trial.input(&expedition.astronaut, &expedition.rescue)
+                } else {
+                    trial.input(&expedition.astronaut, dt)
+                };
+                let interact = if opts.venus {
+                    venus_trial.interact(&expedition.astronaut, &expedition.venus)
+                } else if opts.mercury {
+                    rescue_trial.interact(&expedition.astronaut, &expedition.rescue)
+                } else {
+                    false
+                };
+                if interact {
+                    expedition.interact(&mut world);
+                }
+            } else if expedition.phase == expedition::Phase::Cabin {
+                walk.look_x = -0.12;
+            }
+            if comms.blocking() {
+                comms.advance();
+            }
+        }
+        if opts.record_tour.is_some() {
+            input = recording::input(&world);
+        }
         if !opts.flight_check
             && !opts.portrait
             && !opts.celebration_preview
@@ -723,6 +811,7 @@ fn run() -> Result<(), String> {
                     active_camera,
                     orbits,
                     overview,
+                    opts.cinematic,
                     &ui,
                 );
             } else if expedition.zone == expedition::Zone::Venus {
@@ -732,24 +821,87 @@ fn run() -> Result<(), String> {
             } else {
                 lunar::draw(&mut d, &mut assets, &expedition, active_camera);
             }
-            hud::Hud {
-                audio_settings: &audio_settings,
-                audio_available: soundscape.is_some(),
-                portraits: &portraits,
-                ui: &ui,
-                controls: &controls,
-                world: &world,
-                e: &expedition,
-                comms: &comms,
-                camera: active_camera,
-                overview,
-                help,
-                diagnostic,
-                menu,
-                gamepad_hints: controls.pad_hints() || opts.pad_preview,
-                turbo: action.flight.boost,
+            if !opts.cinematic {
+                hud::Hud {
+                    audio_settings: &audio_settings,
+                    audio_available: soundscape.is_some(),
+                    portraits: &portraits,
+                    ui: &ui,
+                    controls: &controls,
+                    world: &world,
+                    e: &expedition,
+                    comms: &comms,
+                    camera: active_camera,
+                    overview,
+                    help,
+                    diagnostic,
+                    menu,
+                    gamepad_hints: controls.pad_hints() || opts.pad_preview,
+                    turbo: action.flight.boost,
+                }
+                .draw(&mut d);
             }
-            .draw(&mut d);
+            if renderer_stats {
+                let display = assets.display.borrow();
+                let st = display.stats;
+                let x = (d.get_screen_width() - 480).max(0) as f32;
+                d.draw_rectangle(x as i32, 160, 470, 208, Color::new(9, 22, 31, 240));
+                let lines = [
+                    format!(
+                        "Descarte de objetos: {} [F7]",
+                        if display.object_culling {
+                            "ACTIVO"
+                        } else {
+                            "INACTIVO"
+                        }
+                    ),
+                    format!(
+                        "Objetos evaluados: {} / rechazados: {}",
+                        st.objects, st.rejected
+                    ),
+                    format!("Triangulos evitados por objeto: {}", st.avoided_triangles),
+                    format!("Triangulos enviados a recorte: {}", st.submitted_triangles),
+                    format!("Triangulos enviados a rasterizar: {}", display.triangles),
+                    "F6: ocultar panel | --freeze-scene: comparar".into(),
+                ];
+                for (i, line) in lines.iter().enumerate() {
+                    ui.text(
+                        &mut d,
+                        line,
+                        x + 16.0,
+                        175.0 + i as f32 * 30.0,
+                        18.0,
+                        Color::WHITE,
+                    );
+                }
+            }
+            if opts.record_tour.is_some() && !opts.cinematic {
+                d.draw_rectangle(365, 16, 710, 76, Color::new(10, 22, 32, 240));
+                d.draw_text(recording::caption(world.time), 382, 28, 22, Color::WHITE);
+                d.draw_text(
+                    "Captura por fotogramas / vuelo automatico / no es una prueba de FPS",
+                    382,
+                    61,
+                    16,
+                    Color::new(125, 238, 202, 255),
+                );
+            }
+        }
+        if let Some(recorder) = &mut recorder {
+            let image = rl.load_image_from_screen(&thread);
+            let colors = image.get_image_data();
+            let bytes: Vec<u8> = colors.iter().flat_map(|c| [c.r, c.g, c.b, c.a]).collect();
+            recorder.frame(&bytes)?;
+            if frames.is_multiple_of(150) {
+                println!(
+                    "Video: {} / {} cuadros",
+                    frames,
+                    opts.frames.unwrap_or(recording::FRAMES)
+                );
+            }
+        }
+        if frames >= 10 && opts.frames.is_some() {
+            frame_times.push(frame_started.elapsed().as_secs_f64() * 1000.0);
         }
         frames += 1;
         let final_frame = opts.frames.is_some_and(|limit| frames >= limit)
@@ -774,6 +926,9 @@ fn run() -> Result<(), String> {
         if final_frame {
             break;
         }
+    }
+    if let Some(recorder) = &mut recorder {
+        recorder.finish()?;
     }
     if let Some(audio) = &soundscape {
         println!("{}", audio.report());
@@ -818,6 +973,38 @@ fn run() -> Result<(), String> {
     println!(
         "Sesion terminada: {frames} frames; fase {:?}; balizas {:?}; recorrido completo: {}",
         expedition.phase, expedition.beacons, expedition.completed
+    );
+    if !frame_times.is_empty() {
+        frame_times.sort_by(f64::total_cmp);
+        let mean = frame_times.iter().sum::<f64>() / frame_times.len() as f64;
+        println!(
+            "Cuadro completo: media {:.2} ms, {:.1} FPS; p95 {:.2} ms; {} muestras (sin primeros 10)",
+            mean,
+            1000.0 / mean,
+            frame_times[((frame_times.len() - 1) as f64 * 0.95) as usize],
+            frame_times.len()
+        );
+    }
+    let display = assets.display.borrow();
+    println!(
+        "Culling: enabled={} objects={} rejected={} avoided_triangles={} submitted_triangles={} raster_triangles={}",
+        display.object_culling,
+        display.stats.objects,
+        display.stats.rejected,
+        display.stats.avoided_triangles,
+        display.stats.submitted_triangles,
+        display.triangles
+    );
+    println!(
+        "Geometria {:.2} ms; pixeles {:.2} ms",
+        display.geometry_ms / display.frames.max(1) as f64,
+        display.pixels_ms / display.frames.max(1) as f64
+    );
+    println!(
+        "CPU renderer: {} frames, {:.2} ms/frame (rasterizado), {} triangulos en ultimo frame",
+        display.frames,
+        display.total_ms / display.frames.max(1) as f64,
+        display.triangles
     );
     Ok(())
 }

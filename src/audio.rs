@@ -1,5 +1,6 @@
 //! Original score, persistent streaming loops and event-driven sound effects.
 //! Event detection is independent of the device so gameplay can run without audio.
+use crate::math::Vector3;
 use crate::{
     comms::{Comms, Portrait},
     expedition::{Expedition, Phase, Zone},

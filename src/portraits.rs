@@ -1,3 +1,5 @@
+use crate::math::Vector3;
+use crate::software::{Camera3D, Draw3D};
 use crate::{
     astronaut::Astronaut,
     comms::{Comms, Portrait},
@@ -11,6 +13,7 @@ use raylib::prelude::*;
 // Las texturas se crean una vez y se reutilizan; no hay retratos bitmap.
 pub struct Portraits {
     targets: [RenderTexture2D; 4],
+    display: std::rc::Rc<std::cell::RefCell<crate::software::Display>>,
 }
 impl Portraits {
     pub fn load(rl: &mut RaylibHandle, t: &RaylibThread) -> Result<Self, String> {
@@ -22,7 +25,12 @@ impl Portraits {
         for target in &mut targets {
             target.set_texture_filter(t, TextureFilter::TEXTURE_FILTER_BILINEAR);
         }
-        Ok(Self { targets })
+        Ok(Self {
+            targets,
+            display: std::rc::Rc::new(std::cell::RefCell::new(crate::software::Display::new(
+                rl, t, 256, 288,
+            )?)),
+        })
     }
     pub fn update(
         &mut self,
@@ -55,7 +63,15 @@ impl Portraits {
             } else {
                 Color::new(27, 56, 66, 255)
             });
-            let mut s = d.begin_mode3D(camera);
+            let mut s = crate::software::Frame::new(
+                &mut d,
+                camera,
+                self.display.clone(),
+                assets.kind.clone(),
+                assets.time,
+                256,
+                288,
+            );
             if i == 2 {
                 s.draw_cube(
                     v(0.0, 2.0, 0.0),

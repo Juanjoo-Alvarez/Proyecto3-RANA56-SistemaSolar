@@ -1,5 +1,6 @@
+use crate::math::Vector3;
 use crate::simulation::*;
-use raylib::prelude::*;
+use crate::software::Camera3D;
 use std::f32::consts::{PI, TAU};
 
 pub const RADIUS: f32 = 0.48;
@@ -377,6 +378,21 @@ impl Astronaut {
             }
             safe = p;
         }
+        // A nearby container can shorten the rear ray into Luma's head.
+        // Use a clear overhead ray in that case, still respecting solid geometry.
+        if length(safe - target) < 2.0 {
+            for i in 1..=32 {
+                let p = target + v(0.0, i as f32 * 0.25, 0.0);
+                if solids(self.mercury, self.venus).any(|b| {
+                    b.contains(p, 0.2)
+                        && p.y > b.center.y - b.size.y * 0.5 - 0.2
+                        && p.y < b.top() + 0.25
+                }) {
+                    break;
+                }
+                safe = p + v(0.0, 0.0, -0.01);
+            }
+        }
         safe.y = safe.y.max(floor(safe) + 0.5);
         safe
     }
@@ -385,6 +401,11 @@ impl Astronaut {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn lunar_spawn_camera_does_not_end_inside_the_character() {
+        let camera = Astronaut::default().camera();
+        assert!(length(camera.position - camera.target) > 2.0);
+    }
     #[test]
     fn trial_walks_and_jumps_through_all_platforms_then_returns_to_ship() {
         let mut a = Astronaut::default();

@@ -1,3 +1,4 @@
+use crate::software::{Camera3D, Draw3D};
 use crate::{
     expedition::{Expedition, Phase},
     frog::{self, Pose, Species},
@@ -18,7 +19,15 @@ pub fn draw(d: &mut RaylibDrawHandle, assets: &mut Assets, e: &Expedition, camer
         Color::new(91, 44, 34, 255),
     );
     assets.prepare(camera, e.local.time);
-    let mut s = d.begin_mode3D(camera);
+    let mut s = crate::software::Frame::new(
+        d,
+        camera,
+        assets.display.clone(),
+        assets.kind.clone(),
+        assets.time,
+        d.get_screen_width(),
+        d.get_screen_height(),
+    );
     assets.kind(0);
     s.draw_model(&assets.sphere, v(-82.0, 25.0, -180.0), 36.0, Color::WHITE);
     for x in -16i32..16 {
